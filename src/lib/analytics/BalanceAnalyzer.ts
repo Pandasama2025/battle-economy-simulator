@@ -16,22 +16,22 @@ export class BalanceAnalyzer {
   // 平衡性评估维度
   private readonly BALANCE_METRICS_CONFIG = {
     "combat": [
-      { name: "avgRoundTime", idealRange: [20, 40], weight: 1.0 },
-      { name: "burstDamageRatio", idealRange: [0.2, 0.4], weight: 0.8 },
-      { name: "tankSurvivalRate", idealRange: [0.4, 0.6], weight: 0.7 },
-      { name: "dpsEfficiency", idealRange: [0.6, 0.8], weight: 0.9 },
+      { name: "avgRoundTime", idealRange: [20, 40] as [number, number], weight: 1.0 },
+      { name: "burstDamageRatio", idealRange: [0.2, 0.4] as [number, number], weight: 0.8 },
+      { name: "tankSurvivalRate", idealRange: [0.4, 0.6] as [number, number], weight: 0.7 },
+      { name: "dpsEfficiency", idealRange: [0.6, 0.8] as [number, number], weight: 0.9 },
     ],
     "economy": [
-      { name: "goldLeadImpact", idealRange: [0.3, 0.5], weight: 1.0 },
-      { name: "comebackPossibility", idealRange: [0.2, 0.3], weight: 0.9 },
-      { name: "resourceDistribution", idealRange: [0.4, 0.6], weight: 0.7 },
-      { name: "inflationRate", idealRange: [0.05, 0.15], weight: 0.8 },
+      { name: "goldLeadImpact", idealRange: [0.3, 0.5] as [number, number], weight: 1.0 },
+      { name: "comebackPossibility", idealRange: [0.2, 0.3] as [number, number], weight: 0.9 },
+      { name: "resourceDistribution", idealRange: [0.4, 0.6] as [number, number], weight: 0.7 },
+      { name: "inflationRate", idealRange: [0.05, 0.15] as [number, number], weight: 0.8 },
     ],
     "diversity": [
-      { name: "compWinRateStd", idealRange: [0.05, 0.15], weight: 1.0 },
-      { name: "itemUsageEntropy", idealRange: [0.7, 0.9], weight: 0.7 },
-      { name: "strategyVariety", idealRange: [0.5, 0.8], weight: 0.9 },
-      { name: "metaDynamism", idealRange: [0.3, 0.6], weight: 0.8 },
+      { name: "compWinRateStd", idealRange: [0.05, 0.15] as [number, number], weight: 1.0 },
+      { name: "itemUsageEntropy", idealRange: [0.7, 0.9] as [number, number], weight: 0.7 },
+      { name: "strategyVariety", idealRange: [0.5, 0.8] as [number, number], weight: 0.9 },
+      { name: "metaDynamism", idealRange: [0.3, 0.6] as [number, number], weight: 0.8 },
     ]
   };
   

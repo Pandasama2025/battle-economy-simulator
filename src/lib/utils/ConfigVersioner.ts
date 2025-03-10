@@ -1,6 +1,5 @@
 
 // 配置版本控制系统
-import { Buffer } from 'buffer';
 
 interface ConfigVersion {
   timestamp: string;
@@ -88,7 +87,7 @@ export class ConfigVersioner {
     return diffs;
   }
   
-  // 生成配置的哈希值
+  // 生成配置的哈希值 - 不使用Buffer，改用简单字符串哈希
   private generateHash(params: Record<string, any>): string {
     const jsonStr = JSON.stringify(params);
     
@@ -100,15 +99,11 @@ export class ConfigVersioner {
       hash |= 0; // 转换为32位整数
     }
     
-    // 使用Buffer转换为十六进制字符串
-    const buffer = Buffer.from([
-      (hash >> 24) & 0xFF,
-      (hash >> 16) & 0xFF,
-      (hash >> 8) & 0xFF,
-      hash & 0xFF
-    ]);
+    // 转换为十六进制字符串
+    const hashHex = Math.abs(hash).toString(16).padStart(8, '0');
     
-    return buffer.toString('hex') + Date.now().toString(36);
+    // 添加时间戳以确保唯一性
+    return hashHex + Date.now().toString(36);
   }
   
   // 保存历史到本地存储
