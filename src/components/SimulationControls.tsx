@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,9 +5,24 @@ import { Slider } from '@/components/ui/slider';
 import { Play, Pause, RotateCcw, Settings, Save } from 'lucide-react';
 import { ConfigVersioner } from '@/lib/utils/ConfigVersioner';
 import { useToast } from '@/hooks/use-toast';
+import { BattleSystem } from '@/lib/simulation/BattleSystem';
+import { EconomyManager } from '@/lib/economy/EconomyManager';
+import { SimulationAnalyzer } from '@/lib/analytics/SimulationAnalyzer';
 
-// 初始化配置版本控制器
+// 初始化系统实例
 const configVersioner = new ConfigVersioner();
+const battleSystem = new BattleSystem();
+const economyManager = new EconomyManager({
+  startingGold: 100,
+  interestThresholds: [10, 20, 30, 40, 50],
+  interestCap: 5,
+  levelCosts: [4, 8, 12, 16, 20],
+  unitPoolSize: { common: 10, rare: 5, epic: 3 },
+  itemPoolSize: { weapon: 5, armor: 5, accessory: 3 },
+  roundIncome: { base: 5, winBonus: 1, loseBonus: 1 },
+  sellingReturn: 0.7
+});
+const analyzer = new SimulationAnalyzer();
 
 const SimulationControls = () => {
   const [isRunning, setIsRunning] = useState(false);
