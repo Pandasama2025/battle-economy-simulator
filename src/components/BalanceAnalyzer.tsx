@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -124,8 +123,8 @@ const BalanceAnalyzer = () => {
         description: "使用贝叶斯优化寻找最佳平衡参数",
       });
       
-      // 定义参数空间
-      const paramSpace = {
+      // 定义参数空间 - 修复：将数组明确定义为具有2个元素的元组
+      const paramSpace: Record<string, [number, number]> = {
         physicalDefense: [0.01, 0.05],
         magicResistance: [0.01, 0.04],
         criticalRate: [0.1, 0.2],
