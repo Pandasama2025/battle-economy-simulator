@@ -32,12 +32,10 @@ const BalanceAnalyzer = () => {
     interestRate: 0.1,
   });
   
-  // 模拟器和优化器实例
   const simulatorRef = useRef<BalanceSimulator | null>(null);
   const optimizerRef = useRef<AutoBalancer | null>(null);
   
   useEffect(() => {
-    // 创建模拟器和优化器实例
     const battleConfig: BattleConfiguration = {
       roundTimeLimit: 60,
       maxRounds: 20,
@@ -62,7 +60,6 @@ const BalanceAnalyzer = () => {
     simulatorRef.current = new BalanceSimulator(battleConfig, economyConfig);
     optimizerRef.current = new AutoBalancer(simulatorRef.current);
     
-    // 设置优化器迭代回调
     if (optimizerRef.current) {
       optimizerRef.current.setIterationCallback((result, iteration) => {
         setSimulationResults(prev => [...prev, result]);
@@ -71,7 +68,6 @@ const BalanceAnalyzer = () => {
     }
   }, []);
   
-  // 启动批量模拟
   const startBatchSimulation = async () => {
     if (!simulatorRef.current) return;
     
@@ -85,11 +81,9 @@ const BalanceAnalyzer = () => {
         description: `将模拟 ${batchSize[0]} 种参数组合`,
       });
       
-      // 启动批量模拟
       const results = await simulatorRef.current.batchTest(batchSize[0]);
       setSimulationResults(results);
       
-      // 分析参数敏感度
       analyzeSensitivity(results);
       
       toast({
@@ -109,7 +103,6 @@ const BalanceAnalyzer = () => {
     }
   };
   
-  // 启动参数优化
   const startOptimization = async () => {
     if (!optimizerRef.current) return;
     
@@ -123,26 +116,23 @@ const BalanceAnalyzer = () => {
         description: "使用贝叶斯优化寻找最佳平衡参数",
       });
       
-      // 定义参数空间 - 修复：将数组明确定义为具有2个元素的元组
       const paramSpace: Record<string, [number, number]> = {
-        physicalDefense: [0.01, 0.05],
-        magicResistance: [0.01, 0.04],
-        criticalRate: [0.1, 0.2],
-        healingEfficiency: [0.8, 1.2],
-        goldScaling: [0.9, 1.5],
-        interestRate: [0.05, 0.15]
+        physicalDefense: [0.01, 0.05] as [number, number],
+        magicResistance: [0.01, 0.04] as [number, number],
+        criticalRate: [0.1, 0.2] as [number, number],
+        healingEfficiency: [0.8, 1.2] as [number, number],
+        goldScaling: [0.9, 1.5] as [number, number],
+        interestRate: [0.05, 0.15] as [number, number]
       };
       
-      // 启动优化
       const bestParams = await optimizerRef.current.optimize(
         parameterConfig, 
         paramSpace,
-        20 // 迭代次数
+        20
       );
       
       setBestParameters(bestParams);
       
-      // 分析参数敏感度
       if (optimizerRef.current) {
         try {
           const sensitivity = optimizerRef.current.generateSensitivityReport();
@@ -174,7 +164,6 @@ const BalanceAnalyzer = () => {
     }
   };
   
-  // 停止优化
   const stopOptimization = () => {
     if (optimizerRef.current) {
       optimizerRef.current.stop();
@@ -185,7 +174,6 @@ const BalanceAnalyzer = () => {
     }
   };
   
-  // 应用推荐参数
   const applyRecommendedParameters = () => {
     if (bestParameters) {
       setParameterConfig(prev => ({
@@ -200,25 +188,20 @@ const BalanceAnalyzer = () => {
     }
   };
   
-  // 分析参数敏感度
   const analyzeSensitivity = (results: SimulationResult[]) => {
-    // 简单实现：计算每个参数与平衡得分的相关性
     const params = Object.keys(results[0]?.params || {});
     const correlations: Record<string, number[]> = {};
     
-    // 初始化相关性数组
     params.forEach(param => {
       correlations[param] = [];
     });
     
-    // 计算每个参数与得分的相关性
     results.forEach(result => {
       params.forEach(param => {
         correlations[param].push(result.params[param] * result.balanceScore);
       });
     });
     
-    // 计算平均相关性并排序
     const sensitivity = params.map(param => {
       const values = correlations[param];
       const average = values.reduce((sum, val) => sum + val, 0) / values.length;
@@ -228,7 +211,6 @@ const BalanceAnalyzer = () => {
     setSensitivityData(sensitivity);
   };
   
-  // 更新参数
   const updateParameter = (param: string, value: number) => {
     setParameterConfig(prev => ({
       ...prev,
@@ -236,7 +218,6 @@ const BalanceAnalyzer = () => {
     }));
   };
   
-  // 生成蒙特卡罗模拟
   const runMonteCarloSimulation = async () => {
     if (!simulatorRef.current) return;
     
@@ -250,11 +231,10 @@ const BalanceAnalyzer = () => {
         description: "将进行参数随机扰动模拟",
       });
       
-      // 启动蒙特卡罗模拟
       const results = await simulatorRef.current.monteCarloSimulation(
         parameterConfig,
-        30, // 迭代次数
-        0.15 // 扰动因子
+        30,
+        0.15
       );
       
       setSimulationResults(results);
@@ -483,7 +463,7 @@ const BalanceAnalyzer = () => {
             <div>
               <h4 className="text-sm font-medium mb-2">自动调优</h4>
               <p className="text-xs text-muted-foreground mb-4">
-                使用贝叶斯优化算法自动寻找最佳参数组合，以获得最高的平衡性得分。
+                使用贝叶斯优化算法自动寻找最佳参数组合，以获得最高的平衡性得���。
               </p>
               
               <div className="flex space-x-2 mb-4">
