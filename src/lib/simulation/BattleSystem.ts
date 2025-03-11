@@ -32,7 +32,16 @@ export class BattleSystem {
       effects: this.getTerrainEffects(terrainType)
     };
     
-    this.applyTerrainEffects();
+    this.applyTerrainEffectsToAllUnits();
+  }
+
+  private applyTerrainEffectsToAllUnits(): void {
+    if (!this.state.environmentEffects) return;
+    
+    const allUnits = [...this.state.teams.alpha, ...this.state.teams.beta];
+    for (const unit of allUnits) {
+      this.applyTerrainEffects(unit);
+    }
   }
 
   executeTurn(): void {
@@ -412,6 +421,8 @@ export class BattleSystem {
   }
 
   applyTerrainEffects(unit: Unit): void {
+    if (!this.state.environmentEffects) return;
+    
     if (this.state.terrain.type === 'fire' && unit.type === 'Mage') {
       const burnDamage = Math.floor(unit.maxHP * 0.05);
       unit.currentHP = Math.max(1, unit.currentHP - burnDamage);
@@ -502,4 +513,3 @@ export class BattleSystem {
     return JSON.parse(JSON.stringify(this.state));
   }
 }
-
