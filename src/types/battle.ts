@@ -3,7 +3,7 @@
 
 export type UnitType = "Warrior" | "Mage" | "Archer" | "Knight" | "Priest" | "Assassin" | "Merchant";
 
-export type ActionType = "attack" | "skill" | "defend" | "retreat" | "move" | "heal" | "buff";
+export type ActionType = "attack" | "skill" | "defend" | "retreat" | "move" | "heal" | "buff" | "recover";
 
 export type TargetType = "single" | "area" | "all" | "self" | "ally";
 
