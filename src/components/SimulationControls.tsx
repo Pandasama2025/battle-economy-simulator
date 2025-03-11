@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { BattleSystem } from '@/lib/simulation/BattleSystem';
 import { EconomyManager } from '@/lib/economy/EconomyManager';
 import { SimulationAnalyzer } from '@/lib/analytics/SimulationAnalyzer';
-import { BattleConfiguration } from '@/types/battle';
+import { BattleConfiguration, TerrainType } from '@/types/battle';
 
 // 初始化系统实例
 const configVersioner = new ConfigVersioner();
@@ -64,7 +64,7 @@ const SimulationControls = () => {
       if (savedConfig.battleParams) {
         setBattleParams(prevParams => ({
           ...prevParams,
-          ...savedConfig.battleParams,
+          ...(savedConfig.battleParams as Partial<BattleConfiguration>),
         }));
       }
       if (savedConfig.economyParams) {
@@ -215,6 +215,7 @@ const SimulationControls = () => {
                   <option value="mountain">山地</option>
                   <option value="desert">沙漠</option>
                   <option value="swamp">沼泽</option>
+                  <option value="fire">火地</option>
                 </select>
               </div>
               

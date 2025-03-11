@@ -1,4 +1,4 @@
-import { Unit, BattleState, BattleLogEntry, ActionType, SkillEffect } from '@/types/battle';
+import { Unit, BattleState, BattleLogEntry, ActionType, SkillEffect, TerrainType } from '@/types/battle';
 
 export class BattleSystem {
   private state: BattleState;
@@ -16,11 +16,12 @@ export class BattleSystem {
         type: 'plains',
         effects: {}
       },
-      log: []
+      log: [],
+      environmentEffects: true
     };
   }
 
-  initializeBattle(alphaTeam: Unit[], betaTeam: Unit[], terrainType = 'plains'): void {
+  initializeBattle(alphaTeam: Unit[], betaTeam: Unit[], terrainType: TerrainType = 'plains'): void {
     this.state.teams.alpha = JSON.parse(JSON.stringify(alphaTeam));
     this.state.teams.beta = JSON.parse(JSON.stringify(betaTeam));
     this.state.round = 0;
@@ -410,7 +411,7 @@ export class BattleSystem {
     }
   }
 
-  getTerrainEffects(terrainType: string): Record<string, number> {
+  getTerrainEffects(terrainType: TerrainType): Record<string, number> {
     switch (terrainType) {
       case 'forest':
         return {
@@ -478,7 +479,7 @@ export class BattleSystem {
     return JSON.parse(JSON.stringify(this.state));
   }
   
-  setTerrain(terrainType: string): void {
+  setTerrain(terrainType: TerrainType): void {
     this.state.terrain = {
       type: terrainType,
       effects: this.getTerrainEffects(terrainType)

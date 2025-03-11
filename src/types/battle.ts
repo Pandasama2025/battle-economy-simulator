@@ -1,5 +1,4 @@
-
-// 战斗系统类型定义
+// ���斗系统类型定义
 
 export type UnitType = "Warrior" | "Mage" | "Archer" | "Knight" | "Priest" | "Assassin" | "Merchant";
 
@@ -7,7 +6,7 @@ export type ActionType = "attack" | "skill" | "defend" | "retreat" | "move" | "h
 
 export type TargetType = "single" | "area" | "all" | "self" | "ally";
 
-export type TerrainType = "plains" | "forest" | "mountain" | "desert" | "swamp";
+export type TerrainType = "plains" | "forest" | "mountain" | "desert" | "swamp" | "fire";
 
 export interface Position {
   x: number;
