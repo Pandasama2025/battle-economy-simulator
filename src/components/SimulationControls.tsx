@@ -62,15 +62,17 @@ const SimulationControls = () => {
     const savedConfig = configVersioner.getLatestConfig();
     if (savedConfig) {
       if (savedConfig.battleParams) {
+        const battleConfig = savedConfig.battleParams as Partial<BattleConfiguration>;
         setBattleParams(prevParams => ({
           ...prevParams,
-          ...(savedConfig.battleParams as Partial<BattleConfiguration>),
+          ...battleConfig,
         }));
       }
       if (savedConfig.economyParams) {
+        const economyConfig = savedConfig.economyParams as Record<string, number>;
         setEconomyParams(prevParams => ({
           ...prevParams,
-          ...savedConfig.economyParams,
+          ...economyConfig,
         }));
       }
     }
@@ -141,7 +143,7 @@ const SimulationControls = () => {
         return {
           ...prev,
           [parentKey]: {
-            ...prev[parentKey as keyof BattleConfiguration],
+            ...(prev[parentKey as keyof BattleConfiguration] as Record<string, any>),
             [childKey]: value
           }
         };

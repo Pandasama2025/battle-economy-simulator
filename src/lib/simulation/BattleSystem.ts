@@ -13,7 +13,7 @@ export class BattleSystem {
         beta: []
       },
       terrain: {
-        type: 'plains',
+        type: 'plains' as TerrainType,
         effects: {}
       },
       log: [],
@@ -411,6 +411,21 @@ export class BattleSystem {
     }
   }
 
+  applyTerrainEffects(unit: Unit): void {
+    if (this.state.terrain.type === 'fire' && unit.type === 'Mage') {
+      const burnDamage = Math.floor(unit.maxHP * 0.05);
+      unit.currentHP = Math.max(1, unit.currentHP - burnDamage);
+      
+      this.logAction(
+        unit, 
+        unit, 
+        'buff', 
+        -burnDamage, 
+        `${unit.name} 受到火焰地形伤害 ${burnDamage}`
+      );
+    }
+  }
+
   getTerrainEffects(terrainType: TerrainType): Record<string, number> {
     switch (terrainType) {
       case 'forest':
@@ -437,7 +452,15 @@ export class BattleSystem {
     }
   }
 
-  applyTerrainEffects(): void {
+  setTerrain(terrainType: TerrainType): void {
+    this.state.terrain = {
+      type: terrainType,
+      effects: this.getTerrainEffects(terrainType)
+    };
+  }
+  
+  getBattleLog(): BattleLogEntry[] {
+    return [...this.state.log];
   }
 
   logAction(
@@ -478,15 +501,5 @@ export class BattleSystem {
   getState(): BattleState {
     return JSON.parse(JSON.stringify(this.state));
   }
-  
-  setTerrain(terrainType: TerrainType): void {
-    this.state.terrain = {
-      type: terrainType,
-      effects: this.getTerrainEffects(terrainType)
-    };
-  }
-  
-  getBattleLog(): BattleLogEntry[] {
-    return [...this.state.log];
-  }
 }
+

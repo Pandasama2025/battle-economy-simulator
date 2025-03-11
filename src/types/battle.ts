@@ -1,4 +1,5 @@
-// ���斗系统类型定义
+
+// 战斗系统类型定义
 
 export type UnitType = "Warrior" | "Mage" | "Archer" | "Knight" | "Priest" | "Assassin" | "Merchant";
 
