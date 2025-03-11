@@ -1,13 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, RotateCcw, Settings, Save } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Play, Pause, RotateCcw, Settings, Save, ChevronDown, ChevronUp } from 'lucide-react';
 import { ConfigVersioner } from '@/lib/utils/ConfigVersioner';
 import { useToast } from '@/hooks/use-toast';
 import { BattleSystem } from '@/lib/simulation/BattleSystem';
 import { EconomyManager } from '@/lib/economy/EconomyManager';
 import { SimulationAnalyzer } from '@/lib/analytics/SimulationAnalyzer';
+import { BattleConfiguration } from '@/types/battle';
 
 // 初始化系统实例
 const configVersioner = new ConfigVersioner();
@@ -27,26 +30,69 @@ const analyzer = new SimulationAnalyzer();
 const SimulationControls = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [speed, setSpeed] = useState([50]);
-  const [params, setParams] = useState({
-    physicalDefense: 0.035,
-    magicResistance: 0.028,
-    criticalRate: 0.15,
-    healingEfficiency: 1.0,
+  const [currentTab, setCurrentTab] = useState('battle');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [battleParams, setBattleParams] = useState<BattleConfiguration>({
+    roundTimeLimit: 60,
+    maxRounds: 20,
+    terrain: "plains",
+    environmentEffects: true,
+    combatParameters: {
+      physicalDefense: 0.035,
+      magicResistance: 0.028,
+      criticalRate: 0.15,
+      healingEfficiency: 1.0,
+    }
+  });
+  const [economyParams, setEconomyParams] = useState({
     goldScaling: 1.2,
     unitCost: 3,
+    interestRate: 0.1,
+    marketVolatility: 0.3,
+    priceFluctuation: 0.2,
   });
   const { toast } = useToast();
+
+  // 模拟回合计数
+  const [currentRound, setCurrentRound] = useState(0);
+  const [simProgress, setSimProgress] = useState(0);
 
   // 加载保存的配置
   useEffect(() => {
     const savedConfig = configVersioner.getLatestConfig();
     if (savedConfig) {
-      setParams(prevParams => ({
-        ...prevParams,
-        ...savedConfig,
-      }));
+      if (savedConfig.battleParams) {
+        setBattleParams(prevParams => ({
+          ...prevParams,
+          ...savedConfig.battleParams,
+        }));
+      }
+      if (savedConfig.economyParams) {
+        setEconomyParams(prevParams => ({
+          ...prevParams,
+          ...savedConfig.economyParams,
+        }));
+      }
     }
   }, []);
+
+  // 模拟进度更新
+  useEffect(() => {
+    if (!isRunning) return;
+    
+    const interval = setInterval(() => {
+      setSimProgress(prev => {
+        const newProgress = prev + (speed[0] / 100);
+        if (newProgress >= 100) {
+          setCurrentRound(prev => prev + 1);
+          return 0;
+        }
+        return newProgress;
+      });
+    }, 100);
+    
+    return () => clearInterval(interval);
+  }, [isRunning, speed]);
 
   // 模拟开始/暂停
   const toggleSimulation = () => {
@@ -63,6 +109,8 @@ const SimulationControls = () => {
   // 重置模拟
   const resetSimulation = () => {
     setIsRunning(false);
+    setCurrentRound(0);
+    setSimProgress(0);
     
     toast({
       title: "模拟已重置",
@@ -72,7 +120,12 @@ const SimulationControls = () => {
 
   // 保存当前配置
   const saveConfig = () => {
-    const hash = configVersioner.commitChange(params, `Manual save at ${new Date().toLocaleTimeString()}`);
+    const configToSave = {
+      battleParams,
+      economyParams
+    };
+    
+    const hash = configVersioner.commitChange(configToSave, `Manual save at ${new Date().toLocaleTimeString()}`);
     
     toast({
       title: "配置已保存",
@@ -80,9 +133,29 @@ const SimulationControls = () => {
     });
   };
 
-  // 更新参数
-  const updateParam = (key: string, value: number) => {
-    setParams(prev => ({
+  // 更新战斗参数
+  const updateBattleParam = (key: string, value: any) => {
+    setBattleParams(prev => {
+      if (key.includes('.')) {
+        const [parentKey, childKey] = key.split('.');
+        return {
+          ...prev,
+          [parentKey]: {
+            ...prev[parentKey as keyof BattleConfiguration],
+            [childKey]: value
+          }
+        };
+      }
+      return {
+        ...prev,
+        [key]: value,
+      };
+    });
+  };
+
+  // 更新经济参数
+  const updateEconomyParam = (key: string, value: number) => {
+    setEconomyParams(prev => ({
       ...prev,
       [key]: value,
     }));
@@ -122,106 +195,201 @@ const SimulationControls = () => {
           </Button>
         </div>
 
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <label className="text-sm text-muted-foreground">
-              参数配置
-            </label>
-            <Button variant="ghost" size="sm" className="h-8 px-2">
-              <Settings className="w-4 h-4" />
-            </Button>
-          </div>
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+          <TabsList className="w-full mb-4">
+            <TabsTrigger value="battle" className="flex-1">战斗配置</TabsTrigger>
+            <TabsTrigger value="economy" className="flex-1">经济配置</TabsTrigger>
+          </TabsList>
           
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>物理防御系数:</div>
-            <div className="text-right">
-              <input 
-                type="number" 
-                className="w-16 bg-background text-right border rounded px-1" 
-                value={params.physicalDefense} 
-                onChange={(e) => updateParam('physicalDefense', parseFloat(e.target.value))} 
-                step="0.001"
-                min="0"
-                max="1"
-              />
+          <TabsContent value="battle" className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>地形类型:</div>
+              <div className="text-right">
+                <select 
+                  className="w-full bg-background text-right border rounded px-1 py-1" 
+                  value={battleParams.terrain} 
+                  onChange={(e) => updateBattleParam('terrain', e.target.value)}
+                >
+                  <option value="plains">平原</option>
+                  <option value="forest">森林</option>
+                  <option value="mountain">山地</option>
+                  <option value="desert">沙漠</option>
+                  <option value="swamp">沼泽</option>
+                </select>
+              </div>
+              
+              <div>最大回合数:</div>
+              <div className="text-right">
+                <input 
+                  type="number" 
+                  className="w-16 bg-background text-right border rounded px-1" 
+                  value={battleParams.maxRounds} 
+                  onChange={(e) => updateBattleParam('maxRounds', parseInt(e.target.value))} 
+                  step="1"
+                  min="5"
+                  max="100"
+                />
+              </div>
+              
+              <div>环境效果:</div>
+              <div className="text-right">
+                <input 
+                  type="checkbox" 
+                  checked={battleParams.environmentEffects} 
+                  onChange={(e) => updateBattleParam('environmentEffects', e.target.checked)} 
+                  className="mr-2"
+                />
+                {battleParams.environmentEffects ? "启用" : "禁用"}
+              </div>
             </div>
             
-            <div>魔法抗性系数:</div>
-            <div className="text-right">
-              <input 
-                type="number" 
-                className="w-16 bg-background text-right border rounded px-1" 
-                value={params.magicResistance} 
-                onChange={(e) => updateParam('magicResistance', parseFloat(e.target.value))} 
-                step="0.001"
-                min="0"
-                max="1"
-              />
+            <div>
+              <Button 
+                variant="ghost" 
+                className="w-full flex justify-between items-center text-sm py-2" 
+                onClick={() => setAdvancedOpen(!advancedOpen)}
+              >
+                高级战斗参数
+                {advancedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </Button>
+              
+              {advancedOpen && (
+                <div className="grid grid-cols-2 gap-2 text-sm mt-2 p-2 border rounded">
+                  <div>物理防御系数:</div>
+                  <div className="text-right">
+                    <input 
+                      type="number" 
+                      className="w-16 bg-background text-right border rounded px-1" 
+                      value={battleParams.combatParameters.physicalDefense} 
+                      onChange={(e) => updateBattleParam('combatParameters.physicalDefense', parseFloat(e.target.value))} 
+                      step="0.001"
+                      min="0"
+                      max="1"
+                    />
+                  </div>
+                  
+                  <div>魔法抗性系数:</div>
+                  <div className="text-right">
+                    <input 
+                      type="number" 
+                      className="w-16 bg-background text-right border rounded px-1" 
+                      value={battleParams.combatParameters.magicResistance} 
+                      onChange={(e) => updateBattleParam('combatParameters.magicResistance', parseFloat(e.target.value))} 
+                      step="0.001"
+                      min="0"
+                      max="1"
+                    />
+                  </div>
+                  
+                  <div>暴击率系数:</div>
+                  <div className="text-right">
+                    <input 
+                      type="number" 
+                      className="w-16 bg-background text-right border rounded px-1" 
+                      value={battleParams.combatParameters.criticalRate} 
+                      onChange={(e) => updateBattleParam('combatParameters.criticalRate', parseFloat(e.target.value))} 
+                      step="0.01"
+                      min="0"
+                      max="1"
+                    />
+                  </div>
+                  
+                  <div>治疗效率:</div>
+                  <div className="text-right">
+                    <input 
+                      type="number" 
+                      className="w-16 bg-background text-right border rounded px-1" 
+                      value={battleParams.combatParameters.healingEfficiency} 
+                      onChange={(e) => updateBattleParam('combatParameters.healingEfficiency', parseFloat(e.target.value))} 
+                      step="0.1"
+                      min="0.1"
+                      max="5"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-            
-            <div>暴击率系数:</div>
-            <div className="text-right">
-              <input 
-                type="number" 
-                className="w-16 bg-background text-right border rounded px-1" 
-                value={params.criticalRate} 
-                onChange={(e) => updateParam('criticalRate', parseFloat(e.target.value))} 
-                step="0.01"
-                min="0"
-                max="1"
-              />
+          </TabsContent>
+          
+          <TabsContent value="economy" className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>金币收益系数:</div>
+              <div className="text-right">
+                <input 
+                  type="number" 
+                  className="w-16 bg-background text-right border rounded px-1" 
+                  value={economyParams.goldScaling} 
+                  onChange={(e) => updateEconomyParam('goldScaling', parseFloat(e.target.value))} 
+                  step="0.1"
+                  min="0.5"
+                  max="3"
+                />
+              </div>
+              
+              <div>单位基础成本:</div>
+              <div className="text-right">
+                <input 
+                  type="number" 
+                  className="w-16 bg-background text-right border rounded px-1" 
+                  value={economyParams.unitCost} 
+                  onChange={(e) => updateEconomyParam('unitCost', parseFloat(e.target.value))} 
+                  step="1"
+                  min="1"
+                  max="10"
+                />
+              </div>
+              
+              <div>利息率:</div>
+              <div className="text-right">
+                <input 
+                  type="number" 
+                  className="w-16 bg-background text-right border rounded px-1" 
+                  value={economyParams.interestRate} 
+                  onChange={(e) => updateEconomyParam('interestRate', parseFloat(e.target.value))} 
+                  step="0.01"
+                  min="0"
+                  max="0.5"
+                />
+              </div>
+              
+              <div>市场波动性:</div>
+              <div className="text-right">
+                <input 
+                  type="number" 
+                  className="w-16 bg-background text-right border rounded px-1" 
+                  value={economyParams.marketVolatility} 
+                  onChange={(e) => updateEconomyParam('marketVolatility', parseFloat(e.target.value))} 
+                  step="0.05"
+                  min="0.1"
+                  max="1"
+                />
+              </div>
+              
+              <div>价格波动范围:</div>
+              <div className="text-right">
+                <input 
+                  type="number" 
+                  className="w-16 bg-background text-right border rounded px-1" 
+                  value={economyParams.priceFluctuation} 
+                  onChange={(e) => updateEconomyParam('priceFluctuation', parseFloat(e.target.value))} 
+                  step="0.05"
+                  min="0.1"
+                  max="0.5"
+                />
+              </div>
             </div>
-            
-            <div>治疗效率:</div>
-            <div className="text-right">
-              <input 
-                type="number" 
-                className="w-16 bg-background text-right border rounded px-1" 
-                value={params.healingEfficiency} 
-                onChange={(e) => updateParam('healingEfficiency', parseFloat(e.target.value))} 
-                step="0.1"
-                min="0.1"
-                max="5"
-              />
-            </div>
-            
-            <div>金币收益系数:</div>
-            <div className="text-right">
-              <input 
-                type="number" 
-                className="w-16 bg-background text-right border rounded px-1" 
-                value={params.goldScaling} 
-                onChange={(e) => updateParam('goldScaling', parseFloat(e.target.value))} 
-                step="0.1"
-                min="0.5"
-                max="3"
-              />
-            </div>
-            
-            <div>单位基础成本:</div>
-            <div className="text-right">
-              <input 
-                type="number" 
-                className="w-16 bg-background text-right border rounded px-1" 
-                value={params.unitCost} 
-                onChange={(e) => updateParam('unitCost', parseFloat(e.target.value))} 
-                step="1"
-                min="1"
-                max="10"
-              />
-            </div>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
         
         {isRunning && (
           <div className="mt-4 p-3 bg-muted/10 rounded-lg">
             <div className="text-sm font-medium mb-1">模拟状态</div>
             <div className="text-xs text-muted-foreground">
-              正在进行: 第 {Math.floor(Math.random() * 10) + 1} 轮
+              正在进行: 第 {currentRound + 1} 轮
               <div className="w-full h-1 bg-secondary mt-1 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-simulator-accent" 
-                  style={{ width: `${Math.floor(Math.random() * 100)}%` }}
+                  style={{ width: `${simProgress}%` }}
                 ></div>
               </div>
             </div>

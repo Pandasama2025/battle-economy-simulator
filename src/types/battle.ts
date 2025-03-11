@@ -7,6 +7,8 @@ export type ActionType = "attack" | "skill" | "defend" | "retreat" | "move" | "h
 
 export type TargetType = "single" | "area" | "all" | "self" | "ally";
 
+export type TerrainType = "plains" | "forest" | "mountain" | "desert" | "swamp";
+
 export interface Position {
   x: number;
   y: number;
@@ -45,6 +47,17 @@ export interface Unit {
   
   // 携带物品
   items: Item[];
+  
+  // 状态效果
+  statusEffects?: StatusEffect[];
+  
+  // 战斗AI偏好
+  aiPreferences?: {
+    aggressiveness: number; // 0-1, 决定进攻倾向
+    supportiveness: number; // 0-1, 决定辅助倾向
+    targetSelection: "weakest" | "strongest" | "nearest" | "random";
+    skillUsageThreshold: number; // 0-1, 使用技能的阈值
+  };
 }
 
 export interface Skill {
@@ -68,6 +81,16 @@ export interface SkillEffect {
   chance?: number;
 }
 
+export interface StatusEffect {
+  id: string;
+  name: string;
+  type: "buff" | "debuff" | "dot" | "hot" | "stun" | "root";
+  value: number;
+  duration: number;
+  sourceId: string; // 效果来源单位ID
+  skillId?: string; // 效果来源技能ID
+}
+
 export interface Item {
   id: string;
   name: string;
@@ -82,6 +105,26 @@ export interface Item {
   }[];
 }
 
+export interface TerrainEffect {
+  type: TerrainType;
+  name: string;
+  description: string;
+  unitTypeModifiers: {
+    [key in UnitType]?: {
+      attack?: number;
+      defense?: number;
+      speed?: number;
+      magicPower?: number;
+      magicResistance?: number;
+    };
+  };
+  globalModifiers?: {
+    visibility?: number;
+    movementCost?: number;
+    recoveryRate?: number;
+  };
+}
+
 export interface BattleState {
   id: string;
   round: number;
@@ -91,13 +134,14 @@ export interface BattleState {
     beta: Unit[];
   };
   terrain: {
-    type: string;
+    type: TerrainType;
     effects: {
       [key: string]: number;
     };
   };
   log: BattleLogEntry[];
   winner?: "alpha" | "beta" | "draw";
+  environmentEffects: boolean;
 }
 
 export interface BattleLogEntry {
@@ -121,5 +165,36 @@ export interface BattleConfiguration {
     magicResistance: number;
     criticalRate: number;
     healingEfficiency: number;
+  };
+}
+
+export interface BattleStatistics {
+  totalDamageDealt: {
+    [unitId: string]: number;
+  };
+  totalDamageTaken: {
+    [unitId: string]: number;
+  };
+  totalHealing: {
+    [unitId: string]: number;
+  };
+  skillsUsed: {
+    [skillId: string]: number;
+  };
+  statusEffectsApplied: {
+    [effectType: string]: number;
+  };
+  criticalHits: {
+    [unitId: string]: number;
+  };
+  killCount: {
+    [unitId: string]: number;
+  };
+  deathCount: {
+    [unitId: string]: number;
+  };
+  averageBattleDuration: number;
+  roundsDistribution: {
+    [round: number]: number;
   };
 }
