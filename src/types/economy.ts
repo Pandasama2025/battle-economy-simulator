@@ -93,6 +93,13 @@ export interface EconomyConfiguration {
     loseBonus: number;
   };
   sellingReturn: number; // 卖出回收比例，如0.7表示70%
+  
+  // 扩展经济配置
+  goldScaling?: number;
+  unitCost?: number;
+  interestRate?: number;
+  marketVolatility?: number;
+  priceFluctuation?: number;
 }
 
 export interface BalanceData {

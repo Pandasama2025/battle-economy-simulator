@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import SimulationControls from './SimulationControls';
 import BattleView from './BattleView';
 import EconomyPanel from './EconomyPanel';
+import BalanceAnalyzer from './BalanceAnalyzer';
 
 const mockData = Array.from({ length: 10 }, (_, i) => ({
   round: i + 1,
@@ -29,6 +30,7 @@ const Dashboard = () => {
               <TabsTrigger value="battle">Battle View</TabsTrigger>
               <TabsTrigger value="economy">Economy</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="balance">Balance</TabsTrigger>
             </TabsList>
             
             <TabsContent value="battle">
@@ -55,6 +57,10 @@ const Dashboard = () => {
                   </ResponsiveContainer>
                 </div>
               </Card>
+            </TabsContent>
+            
+            <TabsContent value="balance">
+              <BalanceAnalyzer />
             </TabsContent>
           </Tabs>
         </div>
