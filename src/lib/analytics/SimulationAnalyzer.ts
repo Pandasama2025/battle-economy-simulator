@@ -5,15 +5,105 @@ import { EconomyState, BalanceData } from '@/types/economy';
 export class SimulationAnalyzer {
   private battleHistory: BattleState[] = [];
   private economyHistory: EconomyState[] = [];
+  private autoAnalysisEnabled: boolean = false;
+  private analysisInterval: number | null = null;
+  private lastAnalysisTime: number = 0;
+  private analysisCallback: ((data: BalanceData) => void) | null = null;
 
   // 添加战斗数据
   addBattleData(battleState: BattleState): void {
     this.battleHistory.push({ ...battleState });
+    
+    // 自动分析检查
+    if (this.autoAnalysisEnabled) {
+      this.checkAndTriggerAnalysis();
+    }
   }
 
   // 添加经济数据
   addEconomyData(economyState: EconomyState): void {
     this.economyHistory.push({ ...economyState });
+    
+    // 自动分析检查
+    if (this.autoAnalysisEnabled) {
+      this.checkAndTriggerAnalysis();
+    }
+  }
+
+  // 启用自动分析
+  enableAutoAnalysis(intervalMs: number = 5000, callback?: (data: BalanceData) => void): void {
+    this.autoAnalysisEnabled = true;
+    this.analysisCallback = callback || null;
+    
+    // 清除之前的定时器
+    if (this.analysisInterval !== null) {
+      clearInterval(this.analysisInterval);
+    }
+    
+    // 设置新的定时分析
+    if (typeof window !== 'undefined') {
+      this.analysisInterval = window.setInterval(() => {
+        const report = this.generateBalanceReport();
+        if (this.analysisCallback) {
+          this.analysisCallback(report);
+        }
+      }, intervalMs);
+    }
+    
+    console.log(`自动分析已启用，间隔: ${intervalMs}ms`);
+  }
+
+  // 禁用自动分析
+  disableAutoAnalysis(): void {
+    this.autoAnalysisEnabled = false;
+    
+    if (this.analysisInterval !== null && typeof window !== 'undefined') {
+      clearInterval(this.analysisInterval);
+      this.analysisInterval = null;
+    }
+    
+    console.log('自动分析已禁用');
+  }
+
+  // 检查是否需要触发分析
+  private checkAndTriggerAnalysis(): void {
+    const now = Date.now();
+    // 至少有5条数据且距离上次分析至少过去了3秒
+    if (
+      (this.battleHistory.length >= 5 || this.economyHistory.length >= 5) && 
+      (now - this.lastAnalysisTime > 3000)
+    ) {
+      const report = this.generateBalanceReport();
+      this.lastAnalysisTime = now;
+      
+      if (this.analysisCallback) {
+        this.analysisCallback(report);
+      }
+    }
+  }
+
+  // 获取分析状态
+  getAnalysisStatus(): { 
+    enabled: boolean; 
+    dataPoints: { battles: number; economy: number }; 
+    lastAnalysis: number;
+  } {
+    return {
+      enabled: this.autoAnalysisEnabled,
+      dataPoints: {
+        battles: this.battleHistory.length,
+        economy: this.economyHistory.length
+      },
+      lastAnalysis: this.lastAnalysisTime
+    };
+  }
+
+  // 清除历史数据
+  clearHistory(): void {
+    this.battleHistory = [];
+    this.economyHistory = [];
+    this.lastAnalysisTime = 0;
+    console.log('分析历史数据已清除');
   }
 
   // 分析单位胜率
@@ -114,6 +204,91 @@ export class SimulationAnalyzer {
       economyImpact,
       averageBattleDuration,
       topCompositions
+    };
+  }
+
+  // 获取智能推荐
+  getBalanceRecommendations(): {
+    unitAdjustments: Array<{ unitType: string; issue: string; recommendation: string }>;
+    economyAdjustments: Array<{ parameter: string; issue: string; recommendation: string }>;
+    balanceScore: number;
+  } {
+    const unitWinRates = this.analyzeUnitWinRates();
+    const { itemUsage } = this.analyzeEconomyTrends();
+    const comebackRate = this.calculateComebackRate();
+    
+    const unitAdjustments: Array<{ unitType: string; issue: string; recommendation: string }> = [];
+    let balanceScore = 100; // 满分100
+
+    // 分析单位平衡性
+    Object.entries(unitWinRates).forEach(([unitType, winRate]) => {
+      if (winRate > 0.6) {
+        unitAdjustments.push({
+          unitType,
+          issue: `胜率过高 (${(winRate * 100).toFixed(1)}%)`,
+          recommendation: '降低攻击力或生命值，或提高技能冷却时间'
+        });
+        balanceScore -= 5;
+      } else if (winRate < 0.4) {
+        unitAdjustments.push({
+          unitType,
+          issue: `胜率过低 (${(winRate * 100).toFixed(1)}%)`,
+          recommendation: '提高攻击力或生命值，或降低技能冷却时间'
+        });
+        balanceScore -= 5;
+      }
+    });
+
+    // 分析经济平衡性
+    const economyAdjustments: Array<{ parameter: string; issue: string; recommendation: string }> = [];
+    
+    // 分析物品使用率
+    const itemTotal = Object.values(itemUsage).reduce((sum, count) => sum + count, 0);
+    if (itemTotal > 0) {
+      Object.entries(itemUsage).forEach(([itemId, count]) => {
+        const usageRate = count / itemTotal;
+        if (usageRate > 0.3) {
+          economyAdjustments.push({
+            parameter: `物品 ${itemId}`,
+            issue: `使用率过高 (${(usageRate * 100).toFixed(1)}%)`,
+            recommendation: '提高物品价格或降低物品效果'
+          });
+          balanceScore -= 3;
+        } else if (usageRate < 0.05 && count > 0) {
+          economyAdjustments.push({
+            parameter: `物品 ${itemId}`,
+            issue: `使用率过低 (${(usageRate * 100).toFixed(1)}%)`,
+            recommendation: '降低物品价格或提高物品效果'
+          });
+          balanceScore -= 2;
+        }
+      });
+    }
+
+    // 分析翻盘率
+    if (comebackRate < 0.1) {
+      economyAdjustments.push({
+        parameter: '翻盘机制',
+        issue: `翻盘率过低 (${(comebackRate * 100).toFixed(1)}%)`,
+        recommendation: '增加落后方的额外金币奖励或强化道具掉落'
+      });
+      balanceScore -= 10;
+    } else if (comebackRate > 0.4) {
+      economyAdjustments.push({
+        parameter: '翻盘机制',
+        issue: `翻盘率过高 (${(comebackRate * 100).toFixed(1)}%)`,
+        recommendation: '减少落后方的额外金币奖励或平衡前期优势'
+      });
+      balanceScore -= 5;
+    }
+
+    // 确保平衡分数在合理范围内
+    balanceScore = Math.max(0, Math.min(100, balanceScore));
+
+    return {
+      unitAdjustments,
+      economyAdjustments,
+      balanceScore
     };
   }
 

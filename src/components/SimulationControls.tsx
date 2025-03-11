@@ -4,13 +4,15 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Play, Pause, RotateCcw, Settings, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, Save, ChevronDown, ChevronUp, LineChart, BarChart } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { ConfigVersioner } from '@/lib/utils/ConfigVersioner';
 import { useToast } from '@/hooks/use-toast';
 import { BattleSystem } from '@/lib/simulation/BattleSystem';
 import { EconomyManager } from '@/lib/economy/EconomyManager';
 import { SimulationAnalyzer } from '@/lib/analytics/SimulationAnalyzer';
 import { BattleConfiguration, TerrainType } from '@/types/battle';
+import { BalanceData } from '@/types/economy';
 
 // 初始化系统实例
 const configVersioner = new ConfigVersioner();
@@ -32,10 +34,12 @@ const SimulationControls = () => {
   const [speed, setSpeed] = useState([50]);
   const [currentTab, setCurrentTab] = useState('battle');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [autoAnalysis, setAutoAnalysis] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<BalanceData | null>(null);
   const [battleParams, setBattleParams] = useState<BattleConfiguration>({
     roundTimeLimit: 60,
     maxRounds: 20,
-    terrain: "plains",
+    terrain: "plains" as TerrainType,
     environmentEffects: true,
     combatParameters: {
       physicalDefense: 0.035,
@@ -78,6 +82,31 @@ const SimulationControls = () => {
     }
   }, []);
 
+  // 处理自动分析开关
+  useEffect(() => {
+    if (autoAnalysis) {
+      analyzer.enableAutoAnalysis(3000, (data) => {
+        setAnalyticsData(data);
+        
+        // 显示分析通知
+        if (isRunning) {
+          toast({
+            title: "自动分析完成",
+            description: `单位平衡度: ${(Object.values(data.unitWinRates).length > 0 
+              ? Object.values(data.unitWinRates).reduce((sum, rate) => sum + Math.abs(rate - 0.5), 0) / Object.values(data.unitWinRates).length 
+              : 0).toFixed(2)}`,
+          });
+        }
+      });
+    } else {
+      analyzer.disableAutoAnalysis();
+    }
+    
+    return () => {
+      analyzer.disableAutoAnalysis();
+    };
+  }, [autoAnalysis, isRunning, toast]);
+
   // 模拟进度更新
   useEffect(() => {
     if (!isRunning) return;
@@ -86,6 +115,12 @@ const SimulationControls = () => {
       setSimProgress(prev => {
         const newProgress = prev + (speed[0] / 100);
         if (newProgress >= 100) {
+          const battleState = battleSystem.getState();
+          analyzer.addBattleData(battleState);
+          
+          const economyState = economyManager.getState();
+          analyzer.addEconomyData(economyState);
+          
           setCurrentRound(prev => prev + 1);
           return 0;
         }
@@ -113,10 +148,25 @@ const SimulationControls = () => {
     setIsRunning(false);
     setCurrentRound(0);
     setSimProgress(0);
+    analyzer.clearHistory();
+    setAnalyticsData(null);
     
     toast({
       title: "模拟已重置",
       description: "所有数据已恢复到初始状态",
+    });
+  };
+
+  // 手动触发分析
+  const triggerAnalysis = () => {
+    const data = analyzer.generateBalanceReport();
+    setAnalyticsData(data);
+    
+    const recommendations = analyzer.getBalanceRecommendations();
+    
+    toast({
+      title: "分析完成",
+      description: `平衡评分: ${recommendations.balanceScore}/100`,
     });
   };
 
@@ -197,6 +247,33 @@ const SimulationControls = () => {
           </Button>
         </div>
 
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Switch 
+              id="auto-analysis"
+              checked={autoAnalysis}
+              onCheckedChange={setAutoAnalysis}
+            />
+            <label 
+              htmlFor="auto-analysis" 
+              className="text-sm cursor-pointer"
+            >
+              自动分析
+            </label>
+          </div>
+          
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={triggerAnalysis}
+            disabled={isRunning}
+            className="text-xs"
+          >
+            <LineChart className="w-3 h-3 mr-1" />
+            手动分析
+          </Button>
+        </div>
+
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
           <TabsList className="w-full mb-4">
             <TabsTrigger value="battle" className="flex-1">战斗配置</TabsTrigger>
@@ -210,7 +287,7 @@ const SimulationControls = () => {
                 <select 
                   className="w-full bg-background text-right border rounded px-1 py-1" 
                   value={battleParams.terrain} 
-                  onChange={(e) => updateBattleParam('terrain', e.target.value)}
+                  onChange={(e) => updateBattleParam('terrain', e.target.value as TerrainType)}
                 >
                   <option value="plains">平原</option>
                   <option value="forest">森林</option>
@@ -394,6 +471,29 @@ const SimulationControls = () => {
                   className="h-full bg-simulator-accent" 
                   style={{ width: `${simProgress}%` }}
                 ></div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {analyticsData && (
+          <div className="mt-4 p-3 bg-muted/10 rounded-lg">
+            <div className="text-sm font-medium mb-1 flex items-center justify-between">
+              <span>分析结果</span>
+              <BarChart className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="text-xs space-y-1">
+              <div className="flex justify-between">
+                <span>平均战斗时长:</span>
+                <span>{analyticsData.averageBattleDuration.toFixed(1)}秒</span>
+              </div>
+              <div className="flex justify-between">
+                <span>翻盘率:</span>
+                <span>{(analyticsData.comebackRate * 100).toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>阵容多样性:</span>
+                <span>{analyticsData.compositionDiversity.toFixed(2)}</span>
               </div>
             </div>
           </div>
