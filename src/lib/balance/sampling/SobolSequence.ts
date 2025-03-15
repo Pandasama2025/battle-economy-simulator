@@ -56,3 +56,67 @@ function reverseBits(n: number): number {
   }
   return result;
 }
+
+/**
+ * 生成拉丁超立方采样
+ * 适用于高维参数空间的均匀采样
+ */
+export function generateLatinHypercubeSampling(
+  paramSpace: Record<string, [number, number]>,
+  numSamples: number
+): Record<string, number>[] {
+  const dimensions = Object.keys(paramSpace);
+  const numDimensions = dimensions.length;
+  const results: Record<string, number>[] = [];
+  
+  // 为每个维度创建一个划分好的区间
+  const intervals: number[][] = [];
+  
+  for (let i = 0; i < numDimensions; i++) {
+    const dimension = dimensions[i];
+    const [min, max] = paramSpace[dimension];
+    const range = max - min;
+    
+    // 将每个维度划分为numSamples个等间距区间
+    const dimensionIntervals = [];
+    for (let j = 0; j < numSamples; j++) {
+      dimensionIntervals.push(min + (j * range) / numSamples);
+    }
+    
+    // 随机打乱该维度的区间顺序
+    shuffleArray(dimensionIntervals);
+    intervals.push(dimensionIntervals);
+  }
+  
+  // 生成样本
+  for (let i = 0; i < numSamples; i++) {
+    const sample: Record<string, number> = {};
+    
+    for (let j = 0; j < numDimensions; j++) {
+      const dimension = dimensions[j];
+      const [min, max] = paramSpace[dimension];
+      const range = max - min;
+      
+      // 从该维度的第i个区间中随机选择一个值
+      const intervalStart = intervals[j][i];
+      const intervalWidth = range / numSamples;
+      
+      // 在区间内随机选择一点
+      sample[dimension] = intervalStart + Math.random() * intervalWidth;
+    }
+    
+    results.push(sample);
+  }
+  
+  return results;
+}
+
+/**
+ * 打乱数组顺序
+ */
+function shuffleArray(array: any[]): void {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}

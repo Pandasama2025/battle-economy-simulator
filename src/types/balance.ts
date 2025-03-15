@@ -106,3 +106,79 @@ export interface ValidationResult {
     economyConversionVariance: number; // 应小于10%
   };
 }
+
+/**
+ * 单位生态链关系
+ */
+export interface UnitEcosystem {
+  // 单位克制关系图 (key: 单位类型, value: 被该单位克制的单位类型列表)
+  counterRelationships: Record<string, string[]>;
+  
+  // 克制系数 (0.5-2.0)
+  counterMultipliers: Record<string, number>;
+  
+  // 环境因素影响
+  environmentalFactors: {
+    [environment: string]: {
+      [unitType: string]: number; // 影响百分比
+    }
+  };
+  
+  // 连击系数
+  comboMultipliers: {
+    base: number;
+    decay: number; // 递减系数
+    maxStack: number; // 最大叠加次数
+  };
+}
+
+/**
+ * 技能连携效果
+ */
+export interface SkillSynergy {
+  // 元素反应定义
+  elementalReactions: {
+    [combination: string]: {
+      name: string;
+      multiplier: number;
+      effectDuration: number;
+    }
+  };
+  
+  // 队伍羁绊加成
+  teamBonds: {
+    [bondName: string]: {
+      units: string[];
+      requiredCount: number;
+      statBoosts: Record<string, number>;
+      specialEffects?: string[];
+    }
+  };
+}
+
+/**
+ * 玩家行为模拟配置
+ */
+export interface PlayerBehaviorSimulation {
+  // 玩家类型及其决策权重
+  archetypes: {
+    [archetype: string]: {
+      // 关键决策参数权重 (0-1)
+      weights: Record<string, number>;
+      // 风险偏好 (0-1, 0为极度保守, 1为极度激进)
+      riskTolerance: number;
+      // 资源分配倾向
+      resourceAllocation: {
+        economy: number;
+        combat: number;
+        longTerm: number;
+      };
+    }
+  };
+  
+  // 模拟规模
+  simulationSize: number;
+  
+  // 回合数
+  roundsToSimulate: number;
+}
