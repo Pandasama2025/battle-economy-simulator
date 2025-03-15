@@ -75,6 +75,7 @@ const BalanceAnalyzer = () => {
       },
       sellingReturn: 0.7,
       
+      // Optional configurations
       goldScaling: parameterConfig.goldScaling,
       interestRate: parameterConfig.interestRate,
       unitCost: 3,

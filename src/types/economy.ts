@@ -1,4 +1,5 @@
-// 经���系统类型定义
+
+// 经济系统类型定义
 
 export interface Player {
   id: string;
@@ -76,6 +77,7 @@ export interface EconomyEvent {
 }
 
 export interface EconomyConfiguration {
+  // Required properties
   startingGold: number;
   interestThresholds: number[];
   interestCap: number;

@@ -273,12 +273,12 @@ export class BalanceSimulator {
     
     // 羁绊和利息系统的经济影响
     if (params.bondBonus) {
-      metrics.synergisticValue = 0.6 + params.bondBonus * 1.2;
+      metrics['synergisticValue'] = 0.6 + params.bondBonus * 1.2;
     }
     
     // 单位胜率对经济的影响
     const avgWinRate = Object.values(winRates).reduce((sum, rate) => sum + rate, 0) / Object.values(winRates).length;
-    metrics.victoryDividend = avgWinRate * 1.5;
+    metrics['victoryDividend'] = avgWinRate * 1.5;
     
     return metrics;
   }
