@@ -1,124 +1,88 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash, Edit, Save, X, Heart, Link } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Trash, Save, X, Edit, Link, Unlink } from 'lucide-react';
+import { useGameContext } from '@/context/GameContext';
+import { Bond } from '@/context/GameContext';
 import { UnitType } from '@/types/battle';
-
-interface BondEffect {
-  description: string;
-  statModifiers: Record<string, number>;
-  specialEffects?: string[];
-}
-
-interface Bond {
-  id: string;
-  name: string;
-  description: string;
-  unitTypes: UnitType[];
-  requiredCount: number;
-  effects: BondEffect;
-}
-
-const DEFAULT_BOND: Omit<Bond, 'id'> = {
-  name: '',
-  description: '',
-  unitTypes: [],
-  requiredCount: 2,
-  effects: {
-    description: '',
-    statModifiers: {
-      attack: 0,
-      defense: 0,
-      speed: 0
-    },
-    specialEffects: []
-  }
-};
 
 const UNIT_TYPES: UnitType[] = [
   'Warrior', 'Mage', 'Archer', 'Knight', 'Priest', 'Assassin', 'Merchant'
 ];
 
+const STAT_TARGETS = [
+  { value: 'attack', label: '攻击力' },
+  { value: 'defense', label: '防御力' },
+  { value: 'magicPower', label: '魔法攻击' },
+  { value: 'magicResistance', label: '魔法抗性' },
+  { value: 'speed', label: '速度' },
+  { value: 'maxHP', label: '生命值' },
+  { value: 'critRate', label: '暴击率' }
+];
+
+const DEFAULT_BOND: Omit<Bond, 'id'> = {
+  name: '',
+  description: '',
+  requiredTypes: [],
+  minUnits: 2,
+  effects: [
+    {
+      type: 'buff',
+      value: 0.1,
+      target: 'attack'
+    }
+  ]
+};
+
 const BondEditor: React.FC = () => {
-  const [bonds, setBonds] = useState<Bond[]>([]);
+  const { bonds, addBond, updateBond, deleteBond, units } = useGameContext();
   const [editingBond, setEditingBond] = useState<Bond | null>(null);
   const [newBond, setNewBond] = useState<Omit<Bond, 'id'>>(DEFAULT_BOND);
-  const [specialEffect, setSpecialEffect] = useState('');
+  const [activeTab, setActiveTab] = useState('bonds');
 
-  // Load initial demo bonds
-  useEffect(() => {
-    const demoBonds: Bond[] = [
-      {
-        id: 'bond-1',
-        name: '战士之怒',
-        description: '激活战士的潜力，提升团队攻击力',
-        unitTypes: ['Warrior', 'Knight'],
-        requiredCount: 2,
-        effects: {
-          description: '团队攻击力提升15%',
-          statModifiers: {
-            attack: 15
-          },
-          specialEffects: ['每次攻击有10%几率击晕敌人']
-        }
-      },
-      {
-        id: 'bond-2',
-        name: '元素亲和',
-        description: '法术单位之间形成魔法共鸣',
-        unitTypes: ['Mage', 'Priest'],
-        requiredCount: 2,
-        effects: {
-          description: '魔法攻击提升20%，魔法抗性提升10%',
-          statModifiers: {
-            magicPower: 20,
-            magicResistance: 10
-          },
-          specialEffects: ['施放法术时有15%几率减少1回合冷却时间']
-        }
-      }
-    ];
-    setBonds(demoBonds);
-  }, []);
-
+  // 处理添加新羁绊
   const handleAddBond = () => {
-    const newBondWithId: Bond = {
-      ...newBond,
-      id: `bond-${Date.now()}`,
-    };
-    setBonds([...bonds, newBondWithId]);
-    setNewBond(DEFAULT_BOND);
+    if (!newBond.name.trim() || newBond.requiredTypes.length === 0) {
+      return; // 防止创建无效羁绊
+    }
+    
+    addBond(newBond);
+    setNewBond(DEFAULT_BOND); // 重置表单
   };
 
+  // 处理删除羁绊
   const handleDeleteBond = (id: string) => {
-    setBonds(bonds.filter(bond => bond.id !== id));
+    deleteBond(id);
     if (editingBond && editingBond.id === id) {
       setEditingBond(null);
     }
   };
 
+  // 处理编辑羁绊
   const handleEditBond = (bond: Bond) => {
     setEditingBond({ ...bond });
   };
 
+  // 处理保存编辑后的羁绊
   const handleSaveBond = () => {
     if (!editingBond) return;
     
-    setBonds(bonds.map(bond => 
-      bond.id === editingBond.id ? editingBond : bond
-    ));
+    updateBond(editingBond.id, editingBond);
     setEditingBond(null);
   };
 
+  // 处理取消编辑
   const handleCancelEdit = () => {
     setEditingBond(null);
   };
 
+  // 处理新羁绊字段更改
   const handleNewBondChange = (field: keyof Omit<Bond, 'id'>, value: any) => {
     setNewBond({
       ...newBond,
@@ -126,29 +90,7 @@ const BondEditor: React.FC = () => {
     });
   };
 
-  const handleNewBondEffectChange = (field: keyof BondEffect, value: any) => {
-    setNewBond({
-      ...newBond,
-      effects: {
-        ...newBond.effects,
-        [field]: value
-      }
-    });
-  };
-
-  const handleNewBondStatChange = (stat: string, value: number) => {
-    setNewBond({
-      ...newBond,
-      effects: {
-        ...newBond.effects,
-        statModifiers: {
-          ...newBond.effects.statModifiers,
-          [stat]: value
-        }
-      }
-    });
-  };
-
+  // 处理编辑中的羁绊字段更改
   const handleEditingBondChange = (field: keyof Bond, value: any) => {
     if (!editingBond) return;
     
@@ -158,447 +100,497 @@ const BondEditor: React.FC = () => {
     });
   };
 
-  const handleEditingBondEffectChange = (field: keyof BondEffect, value: any) => {
-    if (!editingBond) return;
-    
-    setEditingBond({
-      ...editingBond,
-      effects: {
-        ...editingBond.effects,
-        [field]: value
+  // 处理单位类型选择/取消选择
+  const handleTypeToggle = (type: string, isNewBond: boolean) => {
+    if (isNewBond) {
+      const currentTypes = [...newBond.requiredTypes];
+      const typeIndex = currentTypes.indexOf(type);
+      
+      if (typeIndex === -1) {
+        currentTypes.push(type);
+      } else {
+        currentTypes.splice(typeIndex, 1);
       }
+      
+      handleNewBondChange('requiredTypes', currentTypes);
+    } else if (editingBond) {
+      const currentTypes = [...editingBond.requiredTypes];
+      const typeIndex = currentTypes.indexOf(type);
+      
+      if (typeIndex === -1) {
+        currentTypes.push(type);
+      } else {
+        currentTypes.splice(typeIndex, 1);
+      }
+      
+      handleEditingBondChange('requiredTypes', currentTypes);
+    }
+  };
+
+  // 添加效果到新羁绊
+  const addEffectToNew = () => {
+    const newEffect = {
+      type: 'buff',
+      value: 0.1,
+      target: 'attack' as 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate'
+    };
+    
+    setNewBond({
+      ...newBond,
+      effects: [...newBond.effects, newEffect]
     });
   };
 
-  const handleEditingBondStatChange = (stat: string, value: number) => {
+  // 添加效果到编辑中的羁绊
+  const addEffectToEditing = () => {
     if (!editingBond) return;
+    
+    const newEffect = {
+      type: 'buff',
+      value: 0.1,
+      target: 'attack' as 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate'
+    };
     
     setEditingBond({
       ...editingBond,
-      effects: {
-        ...editingBond.effects,
-        statModifiers: {
-          ...editingBond.effects.statModifiers,
-          [stat]: value
-        }
-      }
+      effects: [...editingBond.effects, newEffect]
     });
   };
 
-  const handleAddSpecialEffect = () => {
-    if (!specialEffect.trim()) return;
+  // 更新新羁绊的效果
+  const updateNewEffect = (index: number, field: string, value: any) => {
+    const updatedEffects = [...newBond.effects];
+    updatedEffects[index] = {
+      ...updatedEffects[index],
+      [field]: field === 'value' ? parseFloat(value) : value
+    };
     
-    if (editingBond) {
-      const updatedEffects = editingBond.effects.specialEffects || [];
-      setEditingBond({
-        ...editingBond,
-        effects: {
-          ...editingBond.effects,
-          specialEffects: [...updatedEffects, specialEffect]
-        }
-      });
-    } else {
-      const updatedEffects = newBond.effects.specialEffects || [];
-      setNewBond({
-        ...newBond,
-        effects: {
-          ...newBond.effects,
-          specialEffects: [...updatedEffects, specialEffect]
-        }
-      });
-    }
-    setSpecialEffect('');
+    setNewBond({
+      ...newBond,
+      effects: updatedEffects
+    });
   };
 
-  const handleRemoveSpecialEffect = (index: number) => {
-    if (editingBond && editingBond.effects.specialEffects) {
-      const updatedEffects = [...editingBond.effects.specialEffects];
-      updatedEffects.splice(index, 1);
-      setEditingBond({
-        ...editingBond,
-        effects: {
-          ...editingBond.effects,
-          specialEffects: updatedEffects
-        }
-      });
-    } else if (newBond.effects.specialEffects) {
-      const updatedEffects = [...newBond.effects.specialEffects];
-      updatedEffects.splice(index, 1);
-      setNewBond({
-        ...newBond,
-        effects: {
-          ...newBond.effects,
-          specialEffects: updatedEffects
-        }
-      });
-    }
+  // 更新编辑中羁绊的效果
+  const updateEditingEffect = (index: number, field: string, value: any) => {
+    if (!editingBond) return;
+    
+    const updatedEffects = [...editingBond.effects];
+    updatedEffects[index] = {
+      ...updatedEffects[index],
+      [field]: field === 'value' ? parseFloat(value) : value
+    };
+    
+    setEditingBond({
+      ...editingBond,
+      effects: updatedEffects
+    });
   };
 
-  const handleToggleUnitType = (unitType: UnitType) => {
-    const currentUnitTypes = editingBond ? editingBond.unitTypes : newBond.unitTypes;
+  // 删除新羁绊中的效果
+  const removeNewEffect = (index: number) => {
+    const updatedEffects = [...newBond.effects];
+    updatedEffects.splice(index, 1);
     
-    if (currentUnitTypes.includes(unitType)) {
-      // Remove unit type
-      const updatedTypes = currentUnitTypes.filter(type => type !== unitType);
-      
-      if (editingBond) {
-        setEditingBond({
-          ...editingBond,
-          unitTypes: updatedTypes
-        });
-      } else {
-        setNewBond({
-          ...newBond,
-          unitTypes: updatedTypes
-        });
-      }
-    } else {
-      // Add unit type
-      const updatedTypes = [...currentUnitTypes, unitType];
-      
-      if (editingBond) {
-        setEditingBond({
-          ...editingBond,
-          unitTypes: updatedTypes
-        });
-      } else {
-        setNewBond({
-          ...newBond,
-          unitTypes: updatedTypes
-        });
-      }
-    }
+    setNewBond({
+      ...newBond,
+      effects: updatedEffects
+    });
+  };
+
+  // 删除编辑中羁绊的效果
+  const removeEditingEffect = (index: number) => {
+    if (!editingBond) return;
+    
+    const updatedEffects = [...editingBond.effects];
+    updatedEffects.splice(index, 1);
+    
+    setEditingBond({
+      ...editingBond,
+      effects: updatedEffects
+    });
+  };
+
+  // 计算羁绊的当前激活状态
+  const calculateBondStatus = (bond: Bond) => {
+    const teamAlpha = units.filter(unit => unit.team === 'alpha');
+    const teamBeta = units.filter(unit => unit.team === 'beta');
+    
+    const alphaMatches = teamAlpha.filter(unit => 
+      bond.requiredTypes.includes(unit.type)
+    ).length;
+    
+    const betaMatches = teamBeta.filter(unit => 
+      bond.requiredTypes.includes(unit.type)
+    ).length;
+    
+    return {
+      alpha: alphaMatches >= bond.minUnits,
+      beta: betaMatches >= bond.minUnits
+    };
   };
 
   return (
     <Card className="animate-fade-up">
       <CardHeader>
         <CardTitle>羁绊编辑器</CardTitle>
+        <CardDescription>创建和管理单位之间的羁绊关系</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="space-y-3">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="bonds">羁绊列表</TabsTrigger>
+            <TabsTrigger value="add">添加羁绊</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="bonds" className="space-y-4">
+            {bonds.length === 0 ? (
+              <div className="text-center p-4 text-muted-foreground">
+                未添加任何羁绊，请切换到"添加羁绊"选项卡创建羁绊
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {bonds.map(bond => {
+                  const status = calculateBondStatus(bond);
+                  
+                  return (
+                    <div 
+                      key={bond.id} 
+                      className="border rounded-md p-3 flex flex-col gap-2"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="font-medium">{bond.name}</div>
+                        <div className="flex gap-1">
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            onClick={() => handleEditBond(bond)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            onClick={() => handleDeleteBond(bond.id)}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="text-sm">{bond.description}</div>
+                      
+                      <div className="text-xs text-muted-foreground">
+                        需要单位类型: {bond.requiredTypes.join(', ')}
+                      </div>
+                      
+                      <div className="text-xs text-muted-foreground">
+                        最小单位数量: {bond.minUnits}
+                      </div>
+                      
+                      <div className="space-y-1 mt-2">
+                        <div className="text-xs font-medium">效果:</div>
+                        {bond.effects.map((effect, idx) => (
+                          <div key={idx} className="text-xs pl-2 border-l-2 border-muted">
+                            {effect.type === 'buff' ? '增益' : '减益'} {STAT_TARGETS.find(t => t.value === effect.target)?.label} 
+                            {(effect.value > 0 ? '+' : '') + (effect.value * 100).toFixed(0)}%
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="flex gap-2 mt-2">
+                        <div className={`text-xs px-2 py-1 rounded ${
+                          status.alpha ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          Team Alpha: {status.alpha ? '已激活' : '未激活'}
+                        </div>
+                        <div className={`text-xs px-2 py-1 rounded ${
+                          status.beta ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          Team Beta: {status.beta ? '已激活' : '未激活'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="add">
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="name">羁绊名称</Label>
+                <Label htmlFor="bond-name">羁绊名称</Label>
                 <Input 
-                  id="name" 
+                  id="bond-name" 
                   value={newBond.name} 
                   onChange={(e) => handleNewBondChange('name', e.target.value)}
                 />
               </div>
               
               <div>
-                <Label htmlFor="description">羁绊描述</Label>
+                <Label htmlFor="bond-description">描述</Label>
                 <Textarea 
-                  id="description" 
-                  value={newBond.description}
+                  id="bond-description" 
+                  value={newBond.description} 
                   onChange={(e) => handleNewBondChange('description', e.target.value)}
+                  className="min-h-20"
                 />
               </div>
               
               <div>
-                <Label htmlFor="required">所需单位数量</Label>
-                <Input 
-                  id="required" 
-                  type="number" 
-                  min="2"
-                  value={newBond.requiredCount}
-                  onChange={(e) => handleNewBondChange('requiredCount', parseInt(e.target.value))} 
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div>
-                <Label>单位类型</Label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
+                <Label className="mb-2 block">需要单位类型</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {UNIT_TYPES.map(type => (
-                    <Button
-                      key={type}
-                      variant={newBond.unitTypes.includes(type) ? "default" : "outline"}
-                      size="sm"
-                      className="justify-start"
-                      onClick={() => handleToggleUnitType(type)}
-                    >
-                      {type}
-                    </Button>
+                    <div key={type} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`type-${type}`} 
+                        checked={newBond.requiredTypes.includes(type)}
+                        onCheckedChange={() => handleTypeToggle(type, true)}
+                      />
+                      <label 
+                        htmlFor={`type-${type}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {type}
+                      </label>
+                    </div>
                   ))}
                 </div>
               </div>
               
               <div>
-                <Label>属性加成</Label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <div>
-                    <Label htmlFor="attack-bonus">攻击加成 (%)</Label>
-                    <Input 
-                      id="attack-bonus" 
-                      type="number" 
-                      value={newBond.effects.statModifiers.attack || 0}
-                      onChange={(e) => handleNewBondStatChange('attack', parseInt(e.target.value))} 
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="defense-bonus">防御加成 (%)</Label>
-                    <Input 
-                      id="defense-bonus" 
-                      type="number" 
-                      value={newBond.effects.statModifiers.defense || 0}
-                      onChange={(e) => handleNewBondStatChange('defense', parseInt(e.target.value))} 
-                    />
-                  </div>
-                </div>
+                <Label htmlFor="min-units">最小单位数量</Label>
+                <Input 
+                  id="min-units" 
+                  type="number" 
+                  min="1"
+                  max="7"
+                  value={newBond.minUnits} 
+                  onChange={(e) => handleNewBondChange('minUnits', parseInt(e.target.value))}
+                />
               </div>
               
               <div>
-                <Label htmlFor="effect-desc">效果描述</Label>
-                <Textarea 
-                  id="effect-desc" 
-                  value={newBond.effects.description}
-                  onChange={(e) => handleNewBondEffectChange('description', e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="space-y-3">
-            <Label>特殊效果</Label>
-            <div className="flex items-center gap-2">
-              <Input 
-                value={specialEffect}
-                onChange={(e) => setSpecialEffect(e.target.value)}
-                placeholder="输入特殊效果描述"
-              />
-              <Button onClick={handleAddSpecialEffect}>添加</Button>
-            </div>
-            
-            {newBond.effects.specialEffects && newBond.effects.specialEffects.length > 0 && (
-              <div className="space-y-1">
-                {newBond.effects.specialEffects.map((effect, index) => (
-                  <div key={index} className="flex items-center justify-between bg-muted/20 rounded p-2">
-                    <span>{effect}</span>
+                <div className="flex justify-between items-center mb-2">
+                  <Label>效果</Label>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={addEffectToNew}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    添加效果
+                  </Button>
+                </div>
+                
+                {newBond.effects.map((effect, index) => (
+                  <div key={index} className="flex gap-2 items-end mb-2 p-2 border rounded-md">
+                    <div className="flex-1">
+                      <Label htmlFor={`effect-type-${index}`} className="text-xs">类型</Label>
+                      <select 
+                        id={`effect-type-${index}`}
+                        value={effect.type}
+                        onChange={(e) => updateNewEffect(index, 'type', e.target.value)}
+                        className="w-full bg-background text-sm border rounded px-2 py-1"
+                      >
+                        <option value="buff">增益</option>
+                        <option value="debuff">减益</option>
+                      </select>
+                    </div>
+                    
+                    <div className="flex-1">
+                      <Label htmlFor={`effect-target-${index}`} className="text-xs">目标属性</Label>
+                      <select 
+                        id={`effect-target-${index}`}
+                        value={effect.target}
+                        onChange={(e) => updateNewEffect(index, 'target', e.target.value)}
+                        className="w-full bg-background text-sm border rounded px-2 py-1"
+                      >
+                        {STAT_TARGETS.map(target => (
+                          <option key={target.value} value={target.value}>
+                            {target.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="flex-1">
+                      <Label htmlFor={`effect-value-${index}`} className="text-xs">数值 (%)</Label>
+                      <Input 
+                        id={`effect-value-${index}`}
+                        type="number"
+                        step="0.05"
+                        min="-1"
+                        max="1"
+                        value={effect.value}
+                        onChange={(e) => updateNewEffect(index, 'value', e.target.value)}
+                        className="text-sm"
+                      />
+                    </div>
+                    
                     <Button 
+                      size="icon" 
                       variant="ghost" 
-                      size="icon"
-                      onClick={() => handleRemoveSpecialEffect(index)}
+                      onClick={() => removeNewEffect(index)}
+                      className="h-8 w-8"
                     >
-                      <X className="h-4 w-4" />
+                      <Trash className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-          
-          <div className="mt-4 flex justify-end">
-            <Button onClick={handleAddBond}>
-              <Plus className="h-4 w-4 mr-2" />
-              添加羁绊
-            </Button>
-          </div>
-        </div>
-        
-        <div>
-          <h3 className="text-lg font-medium mb-2">已创建的羁绊</h3>
-          
-          {bonds.length === 0 ? (
-            <div className="text-center p-4 text-muted-foreground">
-              还未添加任何羁绊关系
+              
+              <div className="flex justify-end">
+                <Button onClick={handleAddBond}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  添加羁绊
+                </Button>
+              </div>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>名称</TableHead>
-                  <TableHead>单位类型</TableHead>
-                  <TableHead>要求</TableHead>
-                  <TableHead>效果</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bonds.map(bond => (
-                  <TableRow key={bond.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <Heart className="h-4 w-4 mr-2 text-red-500" />
-                        {bond.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {bond.description}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {bond.unitTypes.join(', ')}
-                    </TableCell>
-                    <TableCell>
-                      {bond.requiredCount}个单位
-                    </TableCell>
-                    <TableCell>
-                      <div>{bond.effects.description}</div>
-                      {bond.effects.specialEffects && bond.effects.specialEffects.length > 0 && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {bond.effects.specialEffects[0]}
-                          {bond.effects.specialEffects.length > 1 && '...'}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          onClick={() => handleEditBond(bond)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          onClick={() => handleDeleteBond(bond.id)}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
         
         {editingBond && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <CardHeader>
                 <CardTitle>编辑羁绊</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className="space-y-3">
-                    <div>
-                      <Label htmlFor="edit-name">羁绊名称</Label>
-                      <Input 
-                        id="edit-name" 
-                        value={editingBond.name} 
-                        onChange={(e) => handleEditingBondChange('name', e.target.value)}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-description">羁绊描述</Label>
-                      <Textarea 
-                        id="edit-description" 
-                        value={editingBond.description}
-                        onChange={(e) => handleEditingBondChange('description', e.target.value)}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-required">所需单位数量</Label>
-                      <Input 
-                        id="edit-required" 
-                        type="number" 
-                        min="2"
-                        value={editingBond.requiredCount}
-                        onChange={(e) => handleEditingBondChange('requiredCount', parseInt(e.target.value))} 
-                      />
-                    </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-bond-name">羁绊名称</Label>
+                    <Input 
+                      id="edit-bond-name" 
+                      value={editingBond.name} 
+                      onChange={(e) => handleEditingBondChange('name', e.target.value)}
+                    />
                   </div>
                   
-                  <div className="space-y-3">
-                    <div>
-                      <Label>单位类型</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
-                        {UNIT_TYPES.map(type => (
-                          <Button
-                            key={type}
-                            variant={editingBond.unitTypes.includes(type) ? "default" : "outline"}
-                            size="sm"
-                            className="justify-start"
-                            onClick={() => handleToggleUnitType(type)}
+                  <div>
+                    <Label htmlFor="edit-bond-description">描述</Label>
+                    <Textarea 
+                      id="edit-bond-description" 
+                      value={editingBond.description} 
+                      onChange={(e) => handleEditingBondChange('description', e.target.value)}
+                      className="min-h-20"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label className="mb-2 block">需要单位类型</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {UNIT_TYPES.map(type => (
+                        <div key={type} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`edit-type-${type}`} 
+                            checked={editingBond.requiredTypes.includes(type)}
+                            onCheckedChange={() => handleTypeToggle(type, false)}
+                          />
+                          <label 
+                            htmlFor={`edit-type-${type}`}
+                            className="text-sm cursor-pointer"
                           >
                             {type}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label>属性加成</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
-                        <div>
-                          <Label htmlFor="edit-attack-bonus">攻击加成 (%)</Label>
-                          <Input 
-                            id="edit-attack-bonus" 
-                            type="number" 
-                            value={editingBond.effects.statModifiers.attack || 0}
-                            onChange={(e) => handleEditingBondStatChange('attack', parseInt(e.target.value))} 
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-defense-bonus">防御加成 (%)</Label>
-                          <Input 
-                            id="edit-defense-bonus" 
-                            type="number" 
-                            value={editingBond.effects.statModifiers.defense || 0}
-                            onChange={(e) => handleEditingBondStatChange('defense', parseInt(e.target.value))} 
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-effect-desc">效果描述</Label>
-                      <Textarea 
-                        id="edit-effect-desc" 
-                        value={editingBond.effects.description}
-                        onChange={(e) => handleEditingBondEffectChange('description', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <Label>特殊效果</Label>
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      value={specialEffect}
-                      onChange={(e) => setSpecialEffect(e.target.value)}
-                      placeholder="输入特殊效果描述"
-                    />
-                    <Button onClick={handleAddSpecialEffect}>添加</Button>
-                  </div>
-                  
-                  {editingBond.effects.specialEffects && editingBond.effects.specialEffects.length > 0 && (
-                    <div className="space-y-1">
-                      {editingBond.effects.specialEffects.map((effect, index) => (
-                        <div key={index} className="flex items-center justify-between bg-muted/20 rounded p-2">
-                          <span>{effect}</span>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleRemoveSpecialEffect(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                          </label>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
-                
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button variant="outline" onClick={handleCancelEdit}>
-                    <X className="h-4 w-4 mr-2" />
-                    取消
-                  </Button>
-                  <Button onClick={handleSaveBond}>
-                    <Save className="h-4 w-4 mr-2" />
-                    保存
-                  </Button>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="edit-min-units">最小单位数量</Label>
+                    <Input 
+                      id="edit-min-units" 
+                      type="number" 
+                      min="1"
+                      max="7"
+                      value={editingBond.minUnits} 
+                      onChange={(e) => handleEditingBondChange('minUnits', parseInt(e.target.value))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <Label>效果</Label>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={addEffectToEditing}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        添加效果
+                      </Button>
+                    </div>
+                    
+                    {editingBond.effects.map((effect, index) => (
+                      <div key={index} className="flex gap-2 items-end mb-2 p-2 border rounded-md">
+                        <div className="flex-1">
+                          <Label htmlFor={`edit-effect-type-${index}`} className="text-xs">类型</Label>
+                          <select 
+                            id={`edit-effect-type-${index}`}
+                            value={effect.type}
+                            onChange={(e) => updateEditingEffect(index, 'type', e.target.value)}
+                            className="w-full bg-background text-sm border rounded px-2 py-1"
+                          >
+                            <option value="buff">增益</option>
+                            <option value="debuff">减益</option>
+                          </select>
+                        </div>
+                        
+                        <div className="flex-1">
+                          <Label htmlFor={`edit-effect-target-${index}`} className="text-xs">目标属性</Label>
+                          <select 
+                            id={`edit-effect-target-${index}`}
+                            value={effect.target}
+                            onChange={(e) => updateEditingEffect(index, 'target', e.target.value)}
+                            className="w-full bg-background text-sm border rounded px-2 py-1"
+                          >
+                            {STAT_TARGETS.map(target => (
+                              <option key={target.value} value={target.value}>
+                                {target.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="flex-1">
+                          <Label htmlFor={`edit-effect-value-${index}`} className="text-xs">数值 (%)</Label>
+                          <Input 
+                            id={`edit-effect-value-${index}`}
+                            type="number"
+                            step="0.05"
+                            min="-1"
+                            max="1"
+                            value={effect.value}
+                            onChange={(e) => updateEditingEffect(index, 'value', e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                        
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          onClick={() => removeEditingEffect(index)}
+                          className="h-8 w-8"
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="flex justify-end gap-2 mt-4">
+                    <Button variant="outline" onClick={handleCancelEdit}>
+                      <X className="h-4 w-4 mr-2" />
+                      取消
+                    </Button>
+                    <Button onClick={handleSaveBond}>
+                      <Save className="h-4 w-4 mr-2" />
+                      保存
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

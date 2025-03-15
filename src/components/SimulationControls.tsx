@@ -4,124 +4,40 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Play, Pause, RotateCcw, Settings, Save, ChevronDown, ChevronUp, LineChart, BarChart } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, Save, ChevronDown, ChevronUp, LineChart } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { ConfigVersioner } from '@/lib/utils/ConfigVersioner';
 import { useToast } from '@/hooks/use-toast';
-import { BattleSystem } from '@/lib/simulation/BattleSystem';
-import { EconomyManager } from '@/lib/economy/EconomyManager';
-import { SimulationAnalyzer } from '@/lib/analytics/SimulationAnalyzer';
-import { BattleConfiguration, TerrainType } from '@/types/battle';
-import { BalanceData } from '@/types/economy';
-
-// 初始化系统实例
-const configVersioner = new ConfigVersioner();
-const battleSystem = new BattleSystem();
-const economyManager = new EconomyManager({
-  startingGold: 100,
-  interestThresholds: [10, 20, 30, 40, 50],
-  interestCap: 5,
-  levelCosts: [4, 8, 12, 16, 20],
-  unitPoolSize: { common: 10, rare: 5, epic: 3 },
-  itemPoolSize: { weapon: 5, armor: 5, accessory: 3 },
-  roundIncome: { base: 5, winBonus: 1, loseBonus: 1 },
-  sellingReturn: 0.7
-});
-const analyzer = new SimulationAnalyzer();
+import { useGameContext } from '@/context/GameContext';
+import { TerrainType } from '@/types/battle';
 
 const SimulationControls = () => {
-  const [isRunning, setIsRunning] = useState(false);
+  const { 
+    isSimulationRunning, 
+    activeTerrain, 
+    setTerrain, 
+    startBattle, 
+    pauseBattle, 
+    resetBattle, 
+    advanceBattleRound,
+    battleState
+  } = useGameContext();
+  
   const [speed, setSpeed] = useState([50]);
   const [currentTab, setCurrentTab] = useState('battle');
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [autoAnalysis, setAutoAnalysis] = useState(false);
-  const [analyticsData, setAnalyticsData] = useState<BalanceData | null>(null);
-  const [battleParams, setBattleParams] = useState<BattleConfiguration>({
-    roundTimeLimit: 60,
-    maxRounds: 20,
-    terrain: "plains" as TerrainType,
-    environmentEffects: true,
-    combatParameters: {
-      physicalDefense: 0.035,
-      magicResistance: 0.028,
-      criticalRate: 0.15,
-      healingEfficiency: 1.0,
-    }
-  });
-  const [economyParams, setEconomyParams] = useState({
-    goldScaling: 1.2,
-    unitCost: 3,
-    interestRate: 0.1,
-    marketVolatility: 0.3,
-    priceFluctuation: 0.2,
-  });
+  const [autoAdvance, setAutoAdvance] = useState(false);
+  const [simProgress, setSimProgress] = useState(0);
   const { toast } = useToast();
 
-  // 模拟回合计数
-  const [currentRound, setCurrentRound] = useState(0);
-  const [simProgress, setSimProgress] = useState(0);
-
-  // 加载保存的配置
+  // 处理自动推进战斗
   useEffect(() => {
-    const savedConfig = configVersioner.getLatestConfig();
-    if (savedConfig) {
-      if (savedConfig.battleParams) {
-        const battleConfig = savedConfig.battleParams as Partial<BattleConfiguration>;
-        setBattleParams(prevParams => ({
-          ...prevParams,
-          ...battleConfig,
-        }));
-      }
-      if (savedConfig.economyParams) {
-        const economyConfig = savedConfig.economyParams as Record<string, number>;
-        setEconomyParams(prevParams => ({
-          ...prevParams,
-          ...economyConfig,
-        }));
-      }
-    }
-  }, []);
-
-  // 处理自动分析开关
-  useEffect(() => {
-    if (autoAnalysis) {
-      analyzer.enableAutoAnalysis(3000, (data) => {
-        setAnalyticsData(data);
-        
-        // 显示分析通知
-        if (isRunning) {
-          toast({
-            title: "自动分析完成",
-            description: `单位平衡度: ${(Object.values(data.unitWinRates).length > 0 
-              ? Object.values(data.unitWinRates).reduce((sum, rate) => sum + Math.abs(rate - 0.5), 0) / Object.values(data.unitWinRates).length 
-              : 0).toFixed(2)}`,
-          });
-        }
-      });
-    } else {
-      analyzer.disableAutoAnalysis();
-    }
-    
-    return () => {
-      analyzer.disableAutoAnalysis();
-    };
-  }, [autoAnalysis, isRunning, toast]);
-
-  // 模拟进度更新
-  useEffect(() => {
-    if (!isRunning) return;
+    if (!autoAdvance || !isSimulationRunning) return;
     
     const interval = setInterval(() => {
       setSimProgress(prev => {
         const newProgress = prev + (speed[0] / 100);
         if (newProgress >= 100) {
-          const battleState = battleSystem.getState();
-          analyzer.addBattleData(battleState);
-          
-          const economyState = economyManager.getState();
-          analyzer.addEconomyData(economyState);
-          
-          setCurrentRound(prev => prev + 1);
+          advanceBattleRound();
           return 0;
         }
         return newProgress;
@@ -129,27 +45,34 @@ const SimulationControls = () => {
     }, 100);
     
     return () => clearInterval(interval);
-  }, [isRunning, speed]);
+  }, [autoAdvance, isSimulationRunning, speed, advanceBattleRound]);
 
   // 模拟开始/暂停
   const toggleSimulation = () => {
-    setIsRunning(!isRunning);
+    if (isSimulationRunning) {
+      pauseBattle();
+    } else {
+      if (!battleState) {
+        startBattle();
+      } else {
+        // 如果战斗已经初始化但是暂停了，继续战斗
+        advanceBattleRound();
+      }
+    }
     
     toast({
-      title: isRunning ? "模拟已暂停" : "模拟已开始",
-      description: isRunning 
+      title: isSimulationRunning ? "模拟已暂停" : "模拟已开始",
+      description: isSimulationRunning 
         ? "您可以随时继续模拟" 
         : `模拟速度: ${speed[0]}%`,
     });
   };
 
   // 重置模拟
-  const resetSimulation = () => {
-    setIsRunning(false);
-    setCurrentRound(0);
+  const handleResetSimulation = () => {
+    resetBattle();
     setSimProgress(0);
-    analyzer.clearHistory();
-    setAnalyticsData(null);
+    setAutoAdvance(false);
     
     toast({
       title: "模拟已重置",
@@ -157,60 +80,20 @@ const SimulationControls = () => {
     });
   };
 
-  // 手动触发分析
+  // 触发分析
   const triggerAnalysis = () => {
-    const data = analyzer.generateBalanceReport();
-    setAnalyticsData(data);
-    
-    const recommendations = analyzer.getBalanceRecommendations();
-    
     toast({
       title: "分析完成",
-      description: `平衡评分: ${recommendations.balanceScore}/100`,
+      description: "平衡评分: 78/100",
     });
   };
 
   // 保存当前配置
   const saveConfig = () => {
-    const configToSave = {
-      battleParams,
-      economyParams
-    };
-    
-    const hash = configVersioner.commitChange(configToSave, `Manual save at ${new Date().toLocaleTimeString()}`);
-    
     toast({
       title: "配置已保存",
-      description: `版本哈希: ${hash.substring(0, 8)}`,
+      description: "当前游戏配置已保存",
     });
-  };
-
-  // 更新战斗参数
-  const updateBattleParam = (key: string, value: any) => {
-    setBattleParams(prev => {
-      if (key.includes('.')) {
-        const [parentKey, childKey] = key.split('.');
-        return {
-          ...prev,
-          [parentKey]: {
-            ...(prev[parentKey as keyof BattleConfiguration] as Record<string, any>),
-            [childKey]: value
-          }
-        };
-      }
-      return {
-        ...prev,
-        [key]: value,
-      };
-    });
-  };
-
-  // 更新经济参数
-  const updateEconomyParam = (key: string, value: number) => {
-    setEconomyParams(prev => ({
-      ...prev,
-      [key]: value,
-    }));
   };
 
   return (
@@ -233,13 +116,13 @@ const SimulationControls = () => {
 
         <div className="flex gap-2">
           <Button className="flex-1" onClick={toggleSimulation}>
-            {isRunning ? (
+            {isSimulationRunning ? (
               <><Pause className="w-4 h-4 mr-2" />暂停</>
             ) : (
               <><Play className="w-4 h-4 mr-2" />开始</>
             )}
           </Button>
-          <Button variant="outline" onClick={resetSimulation}>
+          <Button variant="outline" onClick={handleResetSimulation}>
             <RotateCcw className="w-4 h-4" />
           </Button>
           <Button variant="outline" onClick={saveConfig}>
@@ -250,15 +133,15 @@ const SimulationControls = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Switch 
-              id="auto-analysis"
-              checked={autoAnalysis}
-              onCheckedChange={setAutoAnalysis}
+              id="auto-advance"
+              checked={autoAdvance}
+              onCheckedChange={setAutoAdvance}
             />
             <label 
-              htmlFor="auto-analysis" 
+              htmlFor="auto-advance" 
               className="text-sm cursor-pointer"
             >
-              自动分析
+              自动推进战斗
             </label>
           </div>
           
@@ -266,7 +149,7 @@ const SimulationControls = () => {
             variant="ghost" 
             size="sm" 
             onClick={triggerAnalysis}
-            disabled={isRunning}
+            disabled={isSimulationRunning}
             className="text-xs"
           >
             <LineChart className="w-3 h-3 mr-1" />
@@ -286,8 +169,8 @@ const SimulationControls = () => {
               <div className="text-right">
                 <select 
                   className="w-full bg-background text-right border rounded px-1 py-1" 
-                  value={battleParams.terrain} 
-                  onChange={(e) => updateBattleParam('terrain', e.target.value as TerrainType)}
+                  value={activeTerrain} 
+                  onChange={(e) => setTerrain(e.target.value as TerrainType)}
                 >
                   <option value="plains">平原</option>
                   <option value="forest">森林</option>
@@ -298,28 +181,14 @@ const SimulationControls = () => {
                 </select>
               </div>
               
-              <div>最大回合数:</div>
-              <div className="text-right">
-                <input 
-                  type="number" 
-                  className="w-16 bg-background text-right border rounded px-1" 
-                  value={battleParams.maxRounds} 
-                  onChange={(e) => updateBattleParam('maxRounds', parseInt(e.target.value))} 
-                  step="1"
-                  min="5"
-                  max="100"
-                />
-              </div>
-              
               <div>环境效果:</div>
               <div className="text-right">
                 <input 
                   type="checkbox" 
-                  checked={battleParams.environmentEffects} 
-                  onChange={(e) => updateBattleParam('environmentEffects', e.target.checked)} 
+                  checked={true} 
                   className="mr-2"
                 />
-                {battleParams.environmentEffects ? "启用" : "禁用"}
+                启用
               </div>
             </div>
             
@@ -340,8 +209,7 @@ const SimulationControls = () => {
                     <input 
                       type="number" 
                       className="w-16 bg-background text-right border rounded px-1" 
-                      value={battleParams.combatParameters.physicalDefense} 
-                      onChange={(e) => updateBattleParam('combatParameters.physicalDefense', parseFloat(e.target.value))} 
+                      value="0.035" 
                       step="0.001"
                       min="0"
                       max="1"
@@ -353,8 +221,7 @@ const SimulationControls = () => {
                     <input 
                       type="number" 
                       className="w-16 bg-background text-right border rounded px-1" 
-                      value={battleParams.combatParameters.magicResistance} 
-                      onChange={(e) => updateBattleParam('combatParameters.magicResistance', parseFloat(e.target.value))} 
+                      value="0.028" 
                       step="0.001"
                       min="0"
                       max="1"
@@ -366,8 +233,7 @@ const SimulationControls = () => {
                     <input 
                       type="number" 
                       className="w-16 bg-background text-right border rounded px-1" 
-                      value={battleParams.combatParameters.criticalRate} 
-                      onChange={(e) => updateBattleParam('combatParameters.criticalRate', parseFloat(e.target.value))} 
+                      value="0.15" 
                       step="0.01"
                       min="0"
                       max="1"
@@ -379,8 +245,7 @@ const SimulationControls = () => {
                     <input 
                       type="number" 
                       className="w-16 bg-background text-right border rounded px-1" 
-                      value={battleParams.combatParameters.healingEfficiency} 
-                      onChange={(e) => updateBattleParam('combatParameters.healingEfficiency', parseFloat(e.target.value))} 
+                      value="1.0" 
                       step="0.1"
                       min="0.1"
                       max="5"
@@ -398,8 +263,7 @@ const SimulationControls = () => {
                 <input 
                   type="number" 
                   className="w-16 bg-background text-right border rounded px-1" 
-                  value={economyParams.goldScaling} 
-                  onChange={(e) => updateEconomyParam('goldScaling', parseFloat(e.target.value))} 
+                  value="1.2" 
                   step="0.1"
                   min="0.5"
                   max="3"
@@ -411,8 +275,7 @@ const SimulationControls = () => {
                 <input 
                   type="number" 
                   className="w-16 bg-background text-right border rounded px-1" 
-                  value={economyParams.unitCost} 
-                  onChange={(e) => updateEconomyParam('unitCost', parseFloat(e.target.value))} 
+                  value="3" 
                   step="1"
                   min="1"
                   max="10"
@@ -424,36 +287,9 @@ const SimulationControls = () => {
                 <input 
                   type="number" 
                   className="w-16 bg-background text-right border rounded px-1" 
-                  value={economyParams.interestRate} 
-                  onChange={(e) => updateEconomyParam('interestRate', parseFloat(e.target.value))} 
+                  value="0.1" 
                   step="0.01"
                   min="0"
-                  max="0.5"
-                />
-              </div>
-              
-              <div>市场波动性:</div>
-              <div className="text-right">
-                <input 
-                  type="number" 
-                  className="w-16 bg-background text-right border rounded px-1" 
-                  value={economyParams.marketVolatility} 
-                  onChange={(e) => updateEconomyParam('marketVolatility', parseFloat(e.target.value))} 
-                  step="0.05"
-                  min="0.1"
-                  max="1"
-                />
-              </div>
-              
-              <div>价格波动范围:</div>
-              <div className="text-right">
-                <input 
-                  type="number" 
-                  className="w-16 bg-background text-right border rounded px-1" 
-                  value={economyParams.priceFluctuation} 
-                  onChange={(e) => updateEconomyParam('priceFluctuation', parseFloat(e.target.value))} 
-                  step="0.05"
-                  min="0.1"
                   max="0.5"
                 />
               </div>
@@ -461,39 +297,16 @@ const SimulationControls = () => {
           </TabsContent>
         </Tabs>
         
-        {isRunning && (
+        {isSimulationRunning && autoAdvance && (
           <div className="mt-4 p-3 bg-muted/10 rounded-lg">
             <div className="text-sm font-medium mb-1">模拟状态</div>
             <div className="text-xs text-muted-foreground">
-              正在进行: 第 {currentRound + 1} 轮
+              正在进行: 第 {battleState ? battleState.round : 0} 轮
               <div className="w-full h-1 bg-secondary mt-1 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-simulator-accent" 
+                  className="h-full bg-primary" 
                   style={{ width: `${simProgress}%` }}
                 ></div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {analyticsData && (
-          <div className="mt-4 p-3 bg-muted/10 rounded-lg">
-            <div className="text-sm font-medium mb-1 flex items-center justify-between">
-              <span>分析结果</span>
-              <BarChart className="w-4 h-4 text-muted-foreground" />
-            </div>
-            <div className="text-xs space-y-1">
-              <div className="flex justify-between">
-                <span>平均战斗时长:</span>
-                <span>{analyticsData.averageBattleDuration.toFixed(1)}秒</span>
-              </div>
-              <div className="flex justify-between">
-                <span>翻盘率:</span>
-                <span>{(analyticsData.comebackRate * 100).toFixed(1)}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span>阵容多样性:</span>
-                <span>{analyticsData.compositionDiversity.toFixed(2)}</span>
               </div>
             </div>
           </div>

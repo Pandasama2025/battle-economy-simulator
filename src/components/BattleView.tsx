@@ -1,97 +1,65 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Shield, Swords, Zap } from 'lucide-react';
-import { Unit, BattleLogEntry } from '@/types/battle';
+import { Unit } from '@/types/battle';
 import { Button } from '@/components/ui/button';
-
-// 模拟数据
-const generateMockUnit = (name: string, type: string, team: 'alpha' | 'beta'): Unit => ({
-  id: Math.random().toString(36).substring(2, 9),
-  name,
-  type: type as any,
-  level: Math.floor(Math.random() * 3) + 1,
-  team,
-  maxHP: Math.floor(Math.random() * 100) + 300,
-  currentHP: Math.floor(Math.random() * 100) + 250,
-  maxMana: 100,
-  currentMana: Math.floor(Math.random() * 100),
-  attack: Math.floor(Math.random() * 20) + 40,
-  defense: Math.floor(Math.random() * 10) + 20,
-  magicPower: Math.floor(Math.random() * 30) + 30,
-  magicResistance: Math.floor(Math.random() * 15) + 15,
-  speed: Math.floor(Math.random() * 10) + 10,
-  critRate: 0.1 + Math.random() * 0.2,
-  critDamage: 1.5 + Math.random() * 0.5,
-  position: { x: 0, y: 0 },
-  status: 'idle',
-  skills: [],
-  items: []
-});
-
-const generateMockLog = (round: number): BattleLogEntry[] => {
-  const actions = ['attack', 'skill', 'heal', 'defend'];
-  const units = ['Knight', 'Mage', 'Archer', 'Warrior', 'Priest', 'Assassin'];
-  const effects = ['damage', 'critical hit', 'dodged', 'healed'];
-  
-  return Array.from({ length: 3 }, (_, i) => ({
-    round,
-    timestamp: Date.now() - (i * 1000),
-    actorId: Math.random().toString(36).substring(2, 9),
-    action: actions[Math.floor(Math.random() * actions.length)] as any,
-    targetId: Math.random().toString(36).substring(2, 9),
-    value: Math.floor(Math.random() * 100) + 50,
-    skillId: Math.random() > 0.5 ? Math.random().toString(36).substring(2, 9) : undefined,
-    message: `[Round ${round}] ${units[Math.floor(Math.random() * units.length)]} ${
-      actions[Math.floor(Math.random() * actions.length)]
-    }s ${units[Math.floor(Math.random() * units.length)]} for ${
-      Math.floor(Math.random() * 100) + 50
-    } ${effects[Math.floor(Math.random() * effects.length)]}`
-  }));
-};
+import { useGameContext } from '@/context/GameContext';
 
 const BattleView = () => {
-  const [round, setRound] = useState(3);
-  const [maxRounds, setMaxRounds] = useState(10);
-  const [teamAlpha, setTeamAlpha] = useState<Unit[]>([
-    generateMockUnit('Knight', 'Knight', 'alpha'),
-    generateMockUnit('Mage', 'Mage', 'alpha'),
-    generateMockUnit('Archer', 'Archer', 'alpha')
-  ]);
-  const [teamBeta, setTeamBeta] = useState<Unit[]>([
-    generateMockUnit('Warrior', 'Warrior', 'beta'),
-    generateMockUnit('Priest', 'Priest', 'beta'),
-    generateMockUnit('Assassin', 'Assassin', 'beta')
-  ]);
-  const [battleLog, setBattleLog] = useState<BattleLogEntry[]>(generateMockLog(round));
+  const { 
+    units, 
+    activeTerrain, 
+    battleLog, 
+    battleState, 
+    isSimulationRunning,
+    advanceBattleRound, 
+    startBattle, 
+    pauseBattle, 
+    resetBattle 
+  } = useGameContext();
+  
   const [activeUnit, setActiveUnit] = useState<Unit | null>(null);
-  const [activeTerrain, setActiveTerrain] = useState('forest');
-
-  // 模拟战斗进展
-  const advanceBattle = () => {
-    if (round < maxRounds) {
-      setRound(round + 1);
-      
-      // 更新生命值
-      setTeamAlpha(team => team.map(unit => ({
-        ...unit,
-        currentHP: Math.max(1, unit.currentHP + (Math.random() > 0.7 ? -50 : 20))
-      })));
-      
-      setTeamBeta(team => team.map(unit => ({
-        ...unit,
-        currentHP: Math.max(1, unit.currentHP + (Math.random() > 0.6 ? -40 : 30))
-      })));
-      
-      // 添加新的战斗日志
-      setBattleLog(log => [...generateMockLog(round + 1), ...log.slice(0, 12)]);
+  
+  // 获取当前战斗中的单位
+  const getBattleUnits = () => {
+    if (battleState) {
+      return {
+        teamAlpha: battleState.teams.alpha,
+        teamBeta: battleState.teams.beta
+      };
     }
+    
+    // 如果战斗未开始，显示编辑中的单位
+    return {
+      teamAlpha: units.filter(unit => unit.team === 'alpha'),
+      teamBeta: units.filter(unit => unit.team === 'beta')
+    };
   };
-
+  
+  const { teamAlpha, teamBeta } = getBattleUnits();
+  
   // 显示单位详情
   const showUnitDetails = (unit: Unit) => {
     setActiveUnit(unit);
+  };
+  
+  // 处理战斗相关操作
+  const handleBattleAction = () => {
+    if (!battleState) {
+      startBattle();
+    } else if (isSimulationRunning) {
+      pauseBattle();
+    } else {
+      advanceBattleRound();
+    }
+  };
+  
+  // 重置战斗
+  const handleResetBattle = () => {
+    resetBattle();
+    setActiveUnit(null);
   };
 
   return (
@@ -100,7 +68,7 @@ const BattleView = () => {
         <h3 className="text-lg font-semibold">战斗模拟</h3>
         <div className="flex items-center gap-2">
           <div className="text-sm px-2 py-1 bg-muted/20 rounded-md">
-            回合: {round}/{maxRounds}
+            回合: {battleState ? battleState.round : 0}/{battleState?.maxRounds || 10}
           </div>
           <div className="text-sm px-2 py-1 bg-muted/20 rounded-md">
             地形: {activeTerrain}
@@ -180,24 +148,40 @@ const BattleView = () => {
         </div>
       )}
 
-      <div className="flex justify-end mt-4">
+      <div className="flex justify-between mt-4">
         <Button 
-          size="sm" 
-          onClick={advanceBattle}
-          disabled={round >= maxRounds}
+          variant="outline" 
+          onClick={handleResetBattle}
+          disabled={!battleState}
+        >
+          重置战斗
+        </Button>
+        
+        <Button 
+          onClick={handleBattleAction}
+          disabled={battleState?.status === 'completed'}
           className="flex items-center gap-1"
         >
-          <Zap className="w-3 h-3" /> 
-          下一回合
+          {!battleState ? (
+            <>开始战斗</>
+          ) : isSimulationRunning ? (
+            <>暂停</>
+          ) : (
+            <><Zap className="w-3 h-3" /> 下一回合</>
+          )}
         </Button>
       </div>
 
       <div className="mt-4 p-4 bg-muted/10 rounded-lg">
         <h4 className="font-medium mb-2">战斗日志</h4>
         <div className="space-y-1 text-sm text-muted-foreground max-h-40 overflow-y-auto">
-          {battleLog.map((entry, i) => (
-            <p key={i}>{entry.message}</p>
-          ))}
+          {battleLog.length === 0 ? (
+            <p>战斗尚未开始</p>
+          ) : (
+            battleLog.map((entry, i) => (
+              <p key={i}>{entry.message}</p>
+            ))
+          )}
         </div>
       </div>
     </Card>

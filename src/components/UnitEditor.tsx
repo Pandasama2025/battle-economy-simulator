@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Trash, Edit, Save, X, Heart } from 'lucide-react';
 import { Unit, UnitType } from '@/types/battle';
+import { useGameContext } from '@/context/GameContext';
 
 const DEFAULT_UNIT: Omit<Unit, 'id'> = {
   name: '',
@@ -35,73 +36,27 @@ const UNIT_TYPES: UnitType[] = [
 ];
 
 const UnitEditor: React.FC = () => {
-  const [units, setUnits] = useState<Unit[]>([]);
+  const { units, addUnit, updateUnit, deleteUnit } = useGameContext();
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [newUnit, setNewUnit] = useState<Omit<Unit, 'id'>>(DEFAULT_UNIT);
   const [activeTab, setActiveTab] = useState('units');
 
-  // Load initial demo units
-  useEffect(() => {
-    const demoUnits: Unit[] = [
-      {
-        id: 'unit-1',
-        name: '骑士',
-        type: 'Knight',
-        level: 2,
-        team: 'alpha',
-        maxHP: 450,
-        currentHP: 450,
-        maxMana: 120,
-        currentMana: 60,
-        attack: 65,
-        defense: 45,
-        magicPower: 30,
-        magicResistance: 25,
-        speed: 12,
-        critRate: 0.08,
-        critDamage: 1.4,
-        position: { x: 0, y: 0 },
-        status: 'idle',
-        skills: [],
-        items: []
-      },
-      {
-        id: 'unit-2',
-        name: '法师',
-        type: 'Mage',
-        level: 2,
-        team: 'alpha',
-        maxHP: 320,
-        currentHP: 320,
-        maxMana: 200,
-        currentMana: 150,
-        attack: 40,
-        defense: 25,
-        magicPower: 80,
-        magicResistance: 40,
-        speed: 14,
-        critRate: 0.12,
-        critDamage: 1.6,
-        position: { x: 0, y: 0 },
-        status: 'idle',
-        skills: [],
-        items: []
-      }
-    ];
-    setUnits(demoUnits);
-  }, []);
-
   const handleAddUnit = () => {
-    const newUnitWithId: Unit = {
+    if (!newUnit.name.trim()) {
+      return; // 防止创建无名单位
+    }
+    
+    addUnit({
       ...newUnit,
-      id: `unit-${Date.now()}`,
-    };
-    setUnits([...units, newUnitWithId]);
-    setNewUnit(DEFAULT_UNIT);
+      currentHP: newUnit.maxHP, // 确保当前生命值等于最大生命值
+      currentMana: newUnit.maxMana / 2, // 初始魔法值设为最大值的一半
+    });
+    
+    setNewUnit(DEFAULT_UNIT); // 重置表单
   };
 
   const handleDeleteUnit = (id: string) => {
-    setUnits(units.filter(unit => unit.id !== id));
+    deleteUnit(id);
     if (editingUnit && editingUnit.id === id) {
       setEditingUnit(null);
     }
@@ -114,9 +69,7 @@ const UnitEditor: React.FC = () => {
   const handleSaveUnit = () => {
     if (!editingUnit) return;
     
-    setUnits(units.map(unit => 
-      unit.id === editingUnit.id ? editingUnit : unit
-    ));
+    updateUnit(editingUnit.id, editingUnit);
     setEditingUnit(null);
   };
 

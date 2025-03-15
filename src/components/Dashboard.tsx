@@ -8,8 +8,11 @@ import SimulationControls from './SimulationControls';
 import BattleView from './BattleView';
 import UnitEditor from './UnitEditor';
 import BondEditor from './BondEditor';
+import { useGameContext } from '@/context/GameContext';
 
 const Dashboard = () => {
+  const { units, bonds } = useGameContext();
+  
   return (
     <div className="flex min-h-screen w-full flex-col">
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
@@ -57,13 +60,13 @@ const Dashboard = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle>转化率</CardTitle>
-              <CardDescription>从试用用户到付费用户的转化率</CardDescription>
+              <CardTitle>单位与羁绊</CardTitle>
+              <CardDescription>可用单位和羁绊组合</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">18.4%</div>
+              <div className="text-2xl font-bold">{units.length} / {bonds.length}</div>
               <p className="text-xs text-muted-foreground">
-                +3.9% 相比上个月
+                单位 / 羁绊数量
               </p>
             </CardContent>
           </Card>
