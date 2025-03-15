@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
@@ -352,6 +353,10 @@ function getPayloadConfigFromPayload(
     ? config[configLabelKey]
     : config[key as keyof typeof config]
 }
+
+// Re-export components from separate files
+export { AreaChart } from './area-chart';
+export { BarChart } from './bar-chart';
 
 export {
   ChartContainer,
