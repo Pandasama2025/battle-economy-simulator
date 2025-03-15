@@ -1,7 +1,11 @@
 
-// ���斗系统类型定义
+// 战斗系统类型定义
 
-export type UnitType = "Warrior" | "Mage" | "Archer" | "Knight" | "Priest" | "Assassin" | "Merchant";
+export type UnitType = "战士" | "法师" | "射手" | "骑士" | "牧师" | "刺客" | "商人";
+
+export type RaceType = "人类" | "精灵" | "龙族" | "亡灵" | "机械" | "元素";
+
+export type ProfessionType = "坦克" | "输出" | "辅助" | "控制" | "刺客";
 
 export type ActionType = "attack" | "skill" | "defend" | "retreat" | "move" | "heal" | "buff" | "recover";
 
@@ -18,6 +22,8 @@ export interface Unit {
   id: string;
   name: string;
   type: UnitType;
+  race: RaceType;
+  profession: ProfessionType;
   level: number;
   team: "alpha" | "beta";
   
@@ -143,6 +149,10 @@ export interface BattleState {
   log: BattleLogEntry[];
   winner?: "alpha" | "beta" | "draw";
   environmentEffects: boolean;
+  // 新增自动棋类游戏特有的状态
+  turnPhase: "preparation" | "battle";
+  phaseTime: number;
+  matchups: Array<{playerId: string, opponentId: string}>;
 }
 
 export interface BattleLogEntry {
@@ -198,4 +208,36 @@ export interface BattleStatistics {
   roundsDistribution: {
     [round: number]: number;
   };
+}
+
+// 自动棋特有类型
+export interface Shop {
+  level: number;
+  refreshCost: number;
+  levelUpCost: number;
+  availableUnits: ShopUnit[];
+}
+
+export interface ShopUnit {
+  id: string;
+  name: string;
+  type: UnitType;
+  race: RaceType;
+  profession: ProfessionType;
+  cost: number;
+  tier: number;
+}
+
+export interface Player {
+  id: string;
+  name: string;
+  health: number;
+  gold: number;
+  experience: number;
+  shop: Shop;
+  bench: Unit[];
+  board: Unit[];
+  streak: number;
+  winCount: number;
+  lossCount: number;
 }

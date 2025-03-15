@@ -1,445 +1,362 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Unit, TerrainType, BattleState, BattleLogEntry } from '@/types/battle';
-import { BattleSystem } from '@/lib/simulation/BattleSystem';
-import { toast } from '@/hooks/use-toast';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { BattleState, Unit } from '@/types/battle';
+import { useToast } from '@/hooks/use-toast';
+import { PerformanceMonitor } from '@/lib/utils/PerformanceMonitor';
 
-// 羁绊类型定义
-export interface Bond {
-  id: string;
-  name: string;
-  description: string;
-  requiredTypes: string[];
-  minUnits: number;
-  effects: {
-    type: string;
-    value: number;
-    target: 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate';
-  }[];
-}
-
-interface GameContextType {
-  units: Unit[];
-  bonds: Bond[];
-  activeTerrain: TerrainType;
-  battleSystem: BattleSystem;
-  battleLog: BattleLogEntry[];
+interface GameContextProps {
   battleState: BattleState | null;
-  isSimulationRunning: boolean;
-  
-  // 单位操作
-  addUnit: (unit: Omit<Unit, 'id'>) => string;
-  updateUnit: (unitId: string, updates: Partial<Unit>) => void;
-  deleteUnit: (unitId: string) => void;
-  
-  // 羁绊操作
-  addBond: (bond: Omit<Bond, 'id'>) => string;
-  updateBond: (bondId: string, updates: Partial<Bond>) => void;
-  deleteBond: (bondId: string) => void;
-  
-  // 战斗相关
-  setTerrain: (terrain: TerrainType) => void;
+  setBattleState: React.Dispatch<React.SetStateAction<BattleState | null>>;
+  addUnit: (unit: Unit) => void;
+  removeUnit: (unitId: string) => void;
   startBattle: () => void;
   pauseBattle: () => void;
+  resumeBattle: () => void;
   resetBattle: () => void;
-  advanceBattleRound: () => void;
-  getBattleLog: () => BattleLogEntry[];
-  
-  // 应用羁绊效果到单位
-  applyBondEffects: (units: Unit[]) => Unit[];
+  isSimulating: boolean;
+  simulationSpeed: number;
+  setSimulationSpeed: (speed: number) => void;
+  performance: PerformanceMonitor;
 }
 
-const GameContext = createContext<GameContextType | null>(null);
+const GameContext = createContext<GameContextProps | undefined>(undefined);
 
-export const GameProvider: React.FC<{children: ReactNode}> = ({ children }) => {
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [bonds, setBonds] = useState<Bond[]>([]);
-  const [activeTerrain, setActiveTerrain] = useState<TerrainType>('plains');
-  const [battleLog, setBattleLog] = useState<BattleLogEntry[]>([]);
+export const useGame = () => {
+  const context = useContext(GameContext);
+  if (!context) {
+    throw new Error('useGame must be used within a GameProvider');
+  }
+  return context;
+};
+
+export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [battleState, setBattleState] = useState<BattleState | null>(null);
-  const [isSimulationRunning, setIsSimulationRunning] = useState(false);
-  
-  // 初始化战斗系统
-  const [battleSystem] = useState(() => new BattleSystem());
-  
-  // 加载初始演示数据
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationSpeed, setSimulationSpeed] = useState(1);
+  const simulationRef = useRef<NodeJS.Timeout | null>(null);
+  const performanceMonitor = useRef(new PerformanceMonitor()).current;
+  const { toast } = useToast();
+
+  // 初始化战斗状态
   useEffect(() => {
-    // 初始单位
-    const demoUnits: Unit[] = [
-      {
-        id: 'unit-1',
-        name: '骑士',
-        type: 'Knight',
-        level: 2,
-        team: 'alpha',
-        maxHP: 450,
-        currentHP: 450,
-        maxMana: 120,
-        currentMana: 60,
-        attack: 65,
-        defense: 45,
-        magicPower: 30,
-        magicResistance: 25,
-        speed: 12,
-        critRate: 0.08,
-        critDamage: 1.4,
-        position: { x: 0, y: 0 },
-        status: 'idle',
-        skills: [],
-        items: []
-      },
-      {
-        id: 'unit-2',
-        name: '法师',
-        type: 'Mage',
-        level: 2,
-        team: 'alpha',
-        maxHP: 320,
-        currentHP: 320,
-        maxMana: 200,
-        currentMana: 150,
-        attack: 40,
-        defense: 25,
-        magicPower: 80,
-        magicResistance: 40,
-        speed: 14,
-        critRate: 0.12,
-        critDamage: 1.6,
-        position: { x: 0, y: 0 },
-        status: 'idle',
-        skills: [],
-        items: []
-      },
-      {
-        id: 'unit-3',
-        name: '战士',
-        type: 'Warrior',
-        level: 2,
-        team: 'beta',
-        maxHP: 400,
-        currentHP: 400,
-        maxMana: 100,
-        currentMana: 50,
-        attack: 70,
-        defense: 40,
-        magicPower: 25,
-        magicResistance: 30,
-        speed: 11,
-        critRate: 0.1,
-        critDamage: 1.5,
-        position: { x: 0, y: 0 },
-        status: 'idle',
-        skills: [],
-        items: []
-      },
-      {
-        id: 'unit-4',
-        name: '牧师',
-        type: 'Priest',
-        level: 2,
-        team: 'beta',
-        maxHP: 300,
-        currentHP: 300,
-        maxMana: 180,
-        currentMana: 120,
-        attack: 35,
-        defense: 30,
-        magicPower: 70,
-        magicResistance: 45,
-        speed: 13,
-        critRate: 0.08,
-        critDamage: 1.3,
-        position: { x: 0, y: 0 },
-        status: 'idle',
-        skills: [],
-        items: []
-      }
-    ];
-    setUnits(demoUnits);
+    if (!battleState) {
+      initBattleState();
+    }
     
-    // 初始羁绊
-    const demoBonds: Bond[] = [
-      {
-        id: 'bond-1',
-        name: '元素掌控',
-        description: '魔法单位组合提高魔法攻击',
-        requiredTypes: ['Mage', 'Priest'],
-        minUnits: 2,
-        effects: [
-          {
-            type: 'buff',
-            value: 0.15,
-            target: 'magicPower'
-          }
-        ]
-      },
-      {
-        id: 'bond-2',
-        name: '坚固壁垒',
-        description: '近战单位组合提高防御',
-        requiredTypes: ['Knight', 'Warrior'],
-        minUnits: 2,
-        effects: [
-          {
-            type: 'buff',
-            value: 0.2,
-            target: 'defense'
-          }
-        ]
+    return () => {
+      if (simulationRef.current) {
+        clearTimeout(simulationRef.current);
       }
-    ];
-    setBonds(demoBonds);
+    };
   }, []);
-  
-  // 添加新单位
-  const addUnit = (unitData: Omit<Unit, 'id'>): string => {
-    const newId = `unit-${Date.now()}`;
-    const newUnit: Unit = {
-      ...unitData,
-      id: newId,
+
+  // 初始化战斗状态
+  const initBattleState = useCallback(() => {
+    const initialState: BattleState = {
+      id: `battle-${Math.random().toString(36).substring(2, 9)}`,
+      round: 1,
+      maxRounds: 20,
+      status: 'preparing',
+      teams: {
+        alpha: [],
+        beta: [],
+      },
+      terrain: {
+        type: 'plains',
+        effects: {},
+      },
+      log: [],
+      environmentEffects: true,
+      turnPhase: 'preparation',
+      phaseTime: 30,
+      matchups: []
     };
-    setUnits(prevUnits => [...prevUnits, newUnit]);
-    toast({
-      title: "单位已添加",
-      description: `${newUnit.name} 已成功添加到游戏中`
-    });
-    return newId;
-  };
-  
-  // 更新现有单位
-  const updateUnit = (unitId: string, updates: Partial<Unit>) => {
-    setUnits(prevUnits => 
-      prevUnits.map(unit => 
-        unit.id === unitId ? { ...unit, ...updates } : unit
-      )
-    );
-  };
-  
-  // 删除单位
-  const deleteUnit = (unitId: string) => {
-    const unitToDelete = units.find(u => u.id === unitId);
-    if (unitToDelete) {
-      setUnits(prevUnits => prevUnits.filter(unit => unit.id !== unitId));
-      toast({
-        title: "单位已删除",
-        description: `${unitToDelete.name} 已从游戏中移除`
-      });
-    }
-  };
-  
-  // 添加新羁绊
-  const addBond = (bondData: Omit<Bond, 'id'>): string => {
-    const newId = `bond-${Date.now()}`;
-    const newBond: Bond = {
-      ...bondData,
-      id: newId,
-    };
-    setBonds(prevBonds => [...prevBonds, newBond]);
-    toast({
-      title: "羁绊已添加",
-      description: `${newBond.name} 羁绊已成功添加到游戏中`
-    });
-    return newId;
-  };
-  
-  // 更新羁绊
-  const updateBond = (bondId: string, updates: Partial<Bond>) => {
-    setBonds(prevBonds => 
-      prevBonds.map(bond => 
-        bond.id === bondId ? { ...bond, ...updates } : bond
-      )
-    );
-  };
-  
-  // 删除羁绊
-  const deleteBond = (bondId: string) => {
-    const bondToDelete = bonds.find(b => b.id === bondId);
-    if (bondToDelete) {
-      setBonds(prevBonds => prevBonds.filter(bond => bond.id !== bondId));
-      toast({
-        title: "羁绊已删除",
-        description: `${bondToDelete.name} 已从游戏中移除`
-      });
-    }
-  };
-  
-  // 设置地形
-  const setTerrain = (terrain: TerrainType) => {
-    setActiveTerrain(terrain);
-    battleSystem.setTerrain(terrain);
-  };
-  
-  // 应用羁绊效果到单位
-  const applyBondEffects = (battleUnits: Unit[]): Unit[] => {
-    // 深拷贝单位以避免直接修改原始单位
-    const processedUnits = JSON.parse(JSON.stringify(battleUnits)) as Unit[];
     
-    // 按队伍分组
-    const alphaTeam = processedUnits.filter(unit => unit.team === 'alpha');
-    const betaTeam = processedUnits.filter(unit => unit.team === 'beta');
-    
-    // 处理每个队伍的羁绊
-    [alphaTeam, betaTeam].forEach(team => {
-      // 检查每个羁绊
-      bonds.forEach(bond => {
-        const qualifyingUnits = team.filter(unit => 
-          bond.requiredTypes.includes(unit.type)
-        );
-        
-        // 如果满足羁绊的最小单位数量要求
-        if (qualifyingUnits.length >= bond.minUnits) {
-          // 应用效果到所有符合条件的单位
-          qualifyingUnits.forEach(unit => {
-            bond.effects.forEach(effect => {
-              if (effect.type === 'buff') {
-                const currentValue = unit[effect.target];
-                if (typeof currentValue === 'number') {
-                  unit[effect.target] = 
-                    effect.target === 'critRate' 
-                      ? Math.min(1.0, currentValue + effect.value) // 暴击率不超过100%
-                      : currentValue * (1 + effect.value); // 其他属性增加百分比
-                }
-              }
-            });
-          });
+    setBattleState(initialState);
+  }, []);
+
+  // 添加单位
+  const addUnit = useCallback((unit: Unit) => {
+    setBattleState(prev => {
+      if (!prev) return prev;
+      
+      // 添加到相应队伍
+      const team = unit.team;
+      return {
+        ...prev,
+        teams: {
+          ...prev.teams,
+          [team]: [...prev.teams[team], unit]
         }
-      });
+      };
     });
+  }, []);
+
+  // 移除单位
+  const removeUnit = useCallback((unitId: string) => {
+    setBattleState(prev => {
+      if (!prev) return prev;
+      
+      // 从两个队伍中查找并移除
+      const alphaFiltered = prev.teams.alpha.filter(u => u.id !== unitId);
+      const betaFiltered = prev.teams.beta.filter(u => u.id !== unitId);
+      
+      return {
+        ...prev,
+        teams: {
+          alpha: alphaFiltered,
+          beta: betaFiltered
+        }
+      };
+    });
+  }, []);
+
+  // 开始战斗模拟
+  const startBattle = useCallback(() => {
+    if (!battleState || isSimulating) return;
     
-    return processedUnits;
-  };
-  
-  // 开始战斗
-  const startBattle = () => {
-    // 根据单位的队伍划分单位
-    const alphaTeam = units.filter(unit => unit.team === 'alpha');
-    const betaTeam = units.filter(unit => unit.team === 'beta');
-    
-    if (alphaTeam.length === 0 || betaTeam.length === 0) {
+    // 检查两个队伍是否都有单位
+    if (battleState.teams.alpha.length === 0 || battleState.teams.beta.length === 0) {
       toast({
         title: "无法开始战斗",
-        description: "每个队伍至少需要一个单位",
-        variant: "destructive"
+        description: "请确保两个队伍都至少有一个单位",
+        variant: "destructive",
       });
       return;
     }
     
-    // 应用羁绊效果
-    const processedAlpha = applyBondEffects(alphaTeam);
-    const processedBeta = applyBondEffects(betaTeam);
-    
-    // 初始化战斗系统
-    battleSystem.initializeBattle(processedAlpha, processedBeta, activeTerrain);
-    
-    // 更新战斗状态
-    setBattleState(battleSystem.getState());
-    setBattleLog(battleSystem.getBattleLog());
-    
-    setIsSimulationRunning(true);
-    
-    toast({
-      title: "战斗已开始",
-      description: `地形: ${activeTerrain}, 单位数: ${processedAlpha.length} vs ${processedBeta.length}`
+    // 更新战斗状态为进行中
+    setBattleState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        status: 'inProgress',
+        log: [
+          ...prev.log,
+          {
+            round: prev.round,
+            timestamp: Date.now(),
+            actorId: 'system',
+            action: 'attack',
+            message: `回合 ${prev.round} 战斗开始！`
+          }
+        ]
+      };
     });
-  };
-  
-  // 暂停战斗
-  const pauseBattle = () => {
-    setIsSimulationRunning(false);
-    toast({
-      title: "战斗已暂停",
-      description: "您可以随时继续战斗",
-    });
-  };
-  
+    
+    setIsSimulating(true);
+    
+    // 启动模拟循环
+    simulateBattle();
+  }, [battleState, isSimulating]);
+
+  // 暂停战斗模拟
+  const pauseBattle = useCallback(() => {
+    if (simulationRef.current) {
+      clearTimeout(simulationRef.current);
+      simulationRef.current = null;
+    }
+    setIsSimulating(false);
+  }, []);
+
+  // 继续战斗模拟
+  const resumeBattle = useCallback(() => {
+    if (!isSimulating && battleState?.status === 'inProgress') {
+      setIsSimulating(true);
+      simulateBattle();
+    }
+  }, [isSimulating, battleState]);
+
   // 重置战斗
-  const resetBattle = () => {
-    setIsSimulationRunning(false);
-    setBattleState(null);
-    setBattleLog([]);
+  const resetBattle = useCallback(() => {
+    if (simulationRef.current) {
+      clearTimeout(simulationRef.current);
+      simulationRef.current = null;
+    }
+    
+    setIsSimulating(false);
+    initBattleState();
     
     toast({
       title: "战斗已重置",
-      description: "所有单位状态已恢复初始值",
+      description: "所有单位和状态已清空",
     });
-  };
-  
-  // 推进战斗回合
-  const advanceBattleRound = () => {
-    if (!battleState) {
-      startBattle();
-      return;
-    }
+  }, []);
+
+  // 模拟战斗逻辑
+  const simulateBattle = useCallback(() => {
+    if (!battleState) return;
     
-    if (battleState.status === 'completed') {
-      toast({
-        title: "战斗已结束",
-        description: `胜利队伍: ${battleState.winner === 'alpha' ? 'Alpha' : 'Beta'}`,
+    // 记录性能
+    const startLogicTime = performance.now();
+    
+    setBattleState(prev => {
+      if (!prev) return prev;
+      
+      // 检查是否已经结束
+      if (prev.status === 'completed') {
+        setIsSimulating(false);
+        return prev;
+      }
+      
+      // 检查是否超过最大回合数
+      if (prev.round >= prev.maxRounds) {
+        // 确定胜者（基于剩余生命值）
+        const alphaHpSum = prev.teams.alpha.reduce((sum, unit) => sum + unit.currentHP, 0);
+        const betaHpSum = prev.teams.beta.reduce((sum, unit) => sum + unit.currentHP, 0);
+        
+        let winner: 'alpha' | 'beta' | 'draw' = 'draw';
+        if (alphaHpSum > betaHpSum) {
+          winner = 'alpha';
+        } else if (betaHpSum > alphaHpSum) {
+          winner = 'beta';
+        }
+        
+        return {
+          ...prev,
+          status: 'completed',
+          winner,
+          log: [
+            ...prev.log,
+            {
+              round: prev.round,
+              timestamp: Date.now(),
+              actorId: 'system',
+              action: 'attack',
+              message: `战斗结束！${
+                winner === 'alpha' ? 'A队获胜!' : 
+                winner === 'beta' ? 'B队获胜!' : 
+                '战斗平局!'
+              }`
+            }
+          ]
+        };
+      }
+      
+      // 简单的战斗逻辑模拟 - 双方随机攻击
+      const alphaTeam = [...prev.teams.alpha];
+      const betaTeam = [...prev.teams.beta];
+      
+      // 检查双方是否都有存活单位
+      const alphaAlive = alphaTeam.filter(unit => unit.currentHP > 0);
+      const betaAlive = betaTeam.filter(unit => unit.currentHP > 0);
+      
+      if (alphaAlive.length === 0 || betaAlive.length === 0) {
+        let winner: 'alpha' | 'beta' | 'draw' = 'draw';
+        if (alphaAlive.length > 0) winner = 'alpha';
+        if (betaAlive.length > 0) winner = 'beta';
+        
+        return {
+          ...prev,
+          status: 'completed',
+          winner,
+          log: [
+            ...prev.log,
+            {
+              round: prev.round,
+              timestamp: Date.now(),
+              actorId: 'system',
+              action: 'attack',
+              message: `战斗结束！${
+                winner === 'alpha' ? 'A队获胜!' : 
+                winner === 'beta' ? 'B队获胜!' : 
+                '战斗平局!'
+              }`
+            }
+          ]
+        };
+      }
+      
+      // 按照速度排序所有单位
+      const allUnits = [...alphaAlive, ...betaAlive].sort((a, b) => b.speed - a.speed);
+      
+      // 战斗回合日志
+      const newLogs = []; 
+      
+      // 每个单位按照速度顺序行动
+      allUnits.forEach(unit => {
+        if (unit.currentHP <= 0) return; // 跳过已经死亡的单位
+        
+        // 确定攻击目标 - 敌方随机一个存活单位
+        const targetTeam = unit.team === 'alpha' ? betaAlive : alphaAlive;
+        if (targetTeam.length === 0) return;
+        
+        const targetIndex = Math.floor(Math.random() * targetTeam.length);
+        const target = targetTeam[targetIndex];
+        
+        // 计算伤害
+        const baseDamage = unit.attack * (1 - target.defense * 0.035);
+        const isCrit = Math.random() < unit.critRate;
+        const damage = Math.max(1, Math.round(isCrit ? baseDamage * unit.critDamage : baseDamage));
+        
+        // 应用伤害
+        target.currentHP = Math.max(0, target.currentHP - damage);
+        
+        // 添加战斗日志
+        newLogs.push({
+          round: prev.round,
+          timestamp: Date.now(),
+          actorId: unit.id,
+          action: 'attack',
+          targetId: target.id,
+          value: damage,
+          message: `${unit.name} ${isCrit ? '暴击' : '攻击'} ${target.name}，造成 ${damage} 点伤害${isCrit ? '(暴击)' : ''}！${
+            target.currentHP <= 0 ? `${target.name} 已击败！` : ''
+          }`
+        });
+        
+        // 如果目标死亡，从存活列表中移除
+        if (target.currentHP <= 0) {
+          if (target.team === 'alpha') {
+            const index = alphaAlive.findIndex(u => u.id === target.id);
+            if (index !== -1) alphaAlive.splice(index, 1);
+          } else {
+            const index = betaAlive.findIndex(u => u.id === target.id);
+            if (index !== -1) betaAlive.splice(index, 1);
+          }
+        }
       });
-      return;
-    }
+      
+      // 更新所有单位状态
+      return {
+        ...prev,
+        teams: {
+          alpha: alphaTeam,
+          beta: betaTeam
+        },
+        round: prev.round + 1,
+        log: [...prev.log, ...newLogs]
+      };
+    });
     
-    // 执行一个回合
-    battleSystem.executeTurn();
+    // 记录性能
+    const endLogicTime = performance.now();
+    performanceMonitor.recordLogicTime(endLogicTime - startLogicTime);
+    performanceMonitor.frameRendered();
     
-    // 更新状态
-    setBattleState(battleSystem.getState());
-    setBattleLog(battleSystem.getBattleLog());
-    
-    // 检查战斗是否结束
-    const updatedState = battleSystem.getState();
-    if (updatedState.status === 'completed') {
-      setIsSimulationRunning(false);
-      toast({
-        title: "战斗结束",
-        description: `${updatedState.winner === 'alpha' ? 'Alpha' : 'Beta'} 队伍获胜!`,
-      });
-    }
-  };
-  
-  // 获取战斗日志
-  const getBattleLog = () => {
-    return battleSystem.getBattleLog();
-  };
-  
-  const contextValue: GameContextType = {
-    units,
-    bonds,
-    activeTerrain,
-    battleSystem,
-    battleLog,
-    battleState,
-    isSimulationRunning,
-    
-    addUnit,
-    updateUnit,
-    deleteUnit,
-    
-    addBond,
-    updateBond,
-    deleteBond,
-    
-    setTerrain,
-    startBattle,
-    pauseBattle,
-    resetBattle,
-    advanceBattleRound,
-    getBattleLog,
-    
-    applyBondEffects
-  };
-  
+    // 根据模拟速度设置下一帧的延迟
+    const delay = Math.max(50, 500 / simulationSpeed);
+    simulationRef.current = setTimeout(() => {
+      simulateBattle();
+    }, delay);
+  }, [battleState, simulationSpeed]);
+
   return (
-    <GameContext.Provider value={contextValue}>
+    <GameContext.Provider value={{
+      battleState,
+      setBattleState,
+      addUnit,
+      removeUnit,
+      startBattle,
+      pauseBattle,
+      resumeBattle,
+      resetBattle,
+      isSimulating,
+      simulationSpeed,
+      setSimulationSpeed,
+      performance: performanceMonitor
+    }}>
       {children}
     </GameContext.Provider>
   );
-};
-
-export const useGameContext = () => {
-  const context = useContext(GameContext);
-  if (!context) {
-    throw new Error('useGameContext must be used within a GameProvider');
-  }
-  return context;
 };

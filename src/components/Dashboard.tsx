@@ -1,115 +1,224 @@
 
-import React from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import BalanceAnalyzer from './BalanceAnalyzer';
-import EconomyPanel from './EconomyPanel';
-import SimulationControls from './SimulationControls';
-import BattleView from './BattleView';
-import UnitEditor from './UnitEditor';
-import BondEditor from './BondEditor';
-import { useGameContext } from '@/context/GameContext';
+import React, { useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import UnitCreator from './UnitCreator';
+import AutoChessControls from './AutoChessControls';
+import BattleField from './BattleField';
+import BalanceOptimizationPanel from './advanced/BalanceOptimizationPanel';
+import { useGame } from '@/context/GameContext';
 
 const Dashboard = () => {
-  const { units, bonds } = useGameContext();
+  const { battleState } = useGame();
+  const [activeTab, setActiveTab] = useState('simulation');
   
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>平衡状态</CardTitle>
-              <CardDescription>胜率偏差仅±2.6%</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">96.5%</div>
-              <p className="text-xs text-muted-foreground">
-                +1.2% 相比上次平衡修改
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>用户活跃度</CardTitle>
-              <CardDescription>过去30天内的活跃用户</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">12,680</div>
-              <p className="text-xs text-muted-foreground">
-                +8.5% 相比上个月
-              </p>
-            </CardContent>
-            <CardFooter className="text-right">
-              <a href="#" className="text-blue-500 hover:underline">
-                查看详细报告
-              </a>
-            </CardFooter>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>会话时长</CardTitle>
-              <CardDescription>平均用户会话时长</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">4m 32s</div>
-              <p className="text-xs text-muted-foreground">
-                -1.4% 相比上个月
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>单位与羁绊</CardTitle>
-              <CardDescription>可用单位和羁绊组合</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{units.length} / {bonds.length}</div>
-              <p className="text-xs text-muted-foreground">
-                单位 / 羁绊数量
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-7">
-            <CardHeader className="pb-0">
-              <CardTitle>游戏平衡分析</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="units">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="units">单位编辑</TabsTrigger>
-                  <TabsTrigger value="bonds">羁绊系统</TabsTrigger>
-                  <TabsTrigger value="battle">战斗模拟</TabsTrigger>
-                  <TabsTrigger value="analyzer">平衡分析</TabsTrigger>
-                  <TabsTrigger value="economy">经济系统</TabsTrigger>
-                  <TabsTrigger value="simulation">模拟控制</TabsTrigger>
-                </TabsList>
-                <TabsContent value="units" className="space-y-4">
-                  <UnitEditor />
-                </TabsContent>
-                <TabsContent value="bonds" className="space-y-4">
-                  <BondEditor />
-                </TabsContent>
-                <TabsContent value="battle" className="space-y-4">
-                  <BattleView />
-                </TabsContent>
-                <TabsContent value="analyzer" className="space-y-4">
-                  <BalanceAnalyzer />
-                </TabsContent>
-                <TabsContent value="economy" className="space-y-4">
-                  <EconomyPanel />
-                </TabsContent>
-                <TabsContent value="simulation" className="space-y-4">
-                  <SimulationControls />
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+    <div className="container mx-auto py-6 space-y-8">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="col-span-full">
+          <CardHeader>
+            <CardTitle>自动棋战斗系统模拟器</CardTitle>
+            <CardDescription>
+              创建单位、管理战斗、优化平衡性
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+      
+      <Tabs
+        defaultValue="simulation"
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
+        <TabsList className="grid grid-cols-4 h-auto p-1">
+          <TabsTrigger value="simulation" className="py-2">战斗模拟</TabsTrigger>
+          <TabsTrigger value="units" className="py-2">单位编辑</TabsTrigger>
+          <TabsTrigger value="balance" className="py-2">平衡分析</TabsTrigger>
+          <TabsTrigger value="advanced" className="py-2">高级设置</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="simulation" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-2">
+              <BattleField />
+            </div>
+            <div>
+              <AutoChessControls />
+            </div>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="units" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <UnitCreator />
+            </div>
+            
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>单位列表</CardTitle>
+                  <CardDescription>已创建的单位</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium">A队 ({battleState?.teams.alpha.length || 0}名单位)</h3>
+                    {battleState?.teams.alpha.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">暂无单位</p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {battleState?.teams.alpha.map(unit => (
+                          <div key={unit.id} className="text-sm p-2 bg-muted/30 rounded-md">
+                            <div className="font-medium">{unit.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {unit.race} | {unit.profession} | Lv.{unit.level}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium">B队 ({battleState?.teams.beta.length || 0}名单位)</h3>
+                    {battleState?.teams.beta.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">暂无单位</p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {battleState?.teams.beta.map(unit => (
+                          <div key={unit.id} className="text-sm p-2 bg-muted/30 rounded-md">
+                            <div className="font-medium">{unit.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {unit.race} | {unit.profession} | Lv.{unit.level}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="balance" className="space-y-4">
+          <div className="grid gap-4">
+            <BalanceOptimizationPanel />
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="advanced" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>羁绊效果设置</CardTitle>
+                <CardDescription>配置种族和职业羁绊效果</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">种族羁绊</h3>
+                    <div className="space-y-2">
+                      {['人类', '精灵', '龙族', '亡灵', '机械', '元素'].map(race => (
+                        <div key={race} className="bg-muted/30 p-2 rounded-md">
+                          <div className="font-medium text-sm">{race}</div>
+                          <div className="grid grid-cols-3 gap-x-2 mt-1 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">(2):</span> +10% 属性
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">(4):</span> +20% 属性
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">(6):</span> 特殊效果
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">职业羁绊</h3>
+                    <div className="space-y-2">
+                      {['坦克', '输出', '辅助', '控制', '刺客'].map(profession => (
+                        <div key={profession} className="bg-muted/30 p-2 rounded-md">
+                          <div className="font-medium text-sm">{profession}</div>
+                          <div className="grid grid-cols-3 gap-x-2 mt-1 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">(2):</span> +10% 能力
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">(4):</span> +25% 能力
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">(6):</span> 职业特效
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>游戏参数配置</CardTitle>
+                <CardDescription>修改游戏核心参数</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">战斗参数</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-muted/30 p-2 rounded-md">
+                        <div className="text-sm">回合时间</div>
+                        <div className="text-xs text-muted-foreground">准备阶段: 30秒</div>
+                        <div className="text-xs text-muted-foreground">战斗阶段: 自动</div>
+                      </div>
+                      <div className="bg-muted/30 p-2 rounded-md">
+                        <div className="text-sm">行动顺序</div>
+                        <div className="text-xs text-muted-foreground">先攻 > 普通 > 迟缓</div>
+                        <div className="text-xs text-muted-foreground">基于速度属性</div>
+                      </div>
+                      <div className="bg-muted/30 p-2 rounded-md">
+                        <div className="text-sm">伤害计算</div>
+                        <div className="text-xs text-muted-foreground">物伤系数: 0.035</div>
+                        <div className="text-xs text-muted-foreground">法伤系数: 0.028</div>
+                      </div>
+                      <div className="bg-muted/30 p-2 rounded-md">
+                        <div className="text-sm">战斗限制</div>
+                        <div className="text-xs text-muted-foreground">最大回合: 20</div>
+                        <div className="text-xs text-muted-foreground">超时判定: 剩余生命值</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">经济参数</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-muted/30 p-2 rounded-md">
+                        <div className="text-sm">金币获取</div>
+                        <div className="text-xs text-muted-foreground">基础: 5/回合</div>
+                        <div className="text-xs text-muted-foreground">利息: 10%</div>
+                      </div>
+                      <div className="bg-muted/30 p-2 rounded-md">
+                        <div className="text-sm">商店机制</div>
+                        <div className="text-xs text-muted-foreground">刷新费用: 2金币</div>
+                        <div className="text-xs text-muted-foreground">升级费用: 4金币</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
