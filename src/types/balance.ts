@@ -1,4 +1,3 @@
-
 /**
  * 平衡模拟结果
  */
@@ -10,12 +9,7 @@ export interface SimulationResult {
   winRates: Record<string, number>;
   
   // 经济指标
-  economyMetrics: {
-    goldEfficiency: number;
-    itemUtilization: number;
-    resourceBalance: number;
-    [key: string]: number;
-  };
+  economyMetrics: Record<string, number>;
   
   // 平衡性综合得分 (0-100)
   balanceScore: number;

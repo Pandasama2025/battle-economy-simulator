@@ -1,5 +1,4 @@
-
-// 经济系统类型定义
+// 经���系统类型定义
 
 export interface Player {
   id: string;
@@ -94,7 +93,7 @@ export interface EconomyConfiguration {
   };
   sellingReturn: number; // 卖出回收比例，如0.7表示70%
   
-  // 扩展经济配置
+  // Optional extended economy configuration
   goldScaling?: number;
   unitCost?: number;
   interestRate?: number;

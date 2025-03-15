@@ -11,6 +11,7 @@ import { BalanceSimulator } from '@/lib/balance/BalanceSimulator';
 import { AutoBalancer } from '@/lib/balance/AutoBalancer';
 import { SimulationResult } from '@/types/balance';
 import { BattleConfiguration } from '@/types/battle';
+import { EconomyConfiguration } from '@/types/economy';
 
 const BalanceAnalyzer = () => {
   const { toast } = useToast();
@@ -49,7 +50,31 @@ const BalanceAnalyzer = () => {
       }
     };
     
-    const economyConfig = {
+    const economyConfig: EconomyConfiguration = {
+      startingGold: 10,
+      interestThresholds: [10, 20, 30, 40, 50],
+      interestCap: 5,
+      levelCosts: [4, 8, 12, 16, 24, 36, 56],
+      unitPoolSize: {
+        "common": 30,
+        "uncommon": 20,
+        "rare": 12,
+        "epic": 8,
+        "legendary": 5
+      },
+      itemPoolSize: {
+        "unit": 20,
+        "equipment": 15,
+        "consumable": 10,
+        "upgrade": 5
+      },
+      roundIncome: {
+        base: 5,
+        winBonus: 1,
+        loseBonus: 1
+      },
+      sellingReturn: 0.7,
+      
       goldScaling: parameterConfig.goldScaling,
       interestRate: parameterConfig.interestRate,
       unitCost: 3,

@@ -263,7 +263,7 @@ export class BalanceSimulator {
    */
   private calculateEconomyMetrics(params: Record<string, number>, winRates: Record<string, number>): Record<string, number> {
     // 基础经济指标
-    const metrics = {
+    const metrics: Record<string, number> = {
       goldEfficiency: 0.7 + (params.goldScaling || 1.0) * 0.2,
       itemUtilization: 0.6 + (params.interestRate || 0.1) * 1.5,
       resourceBalance: Math.abs(0.5 - (params.interestRate || 0.1)),
