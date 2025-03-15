@@ -7,6 +7,7 @@ export class BattleSystem {
     this.state = {
       id: crypto.randomUUID(),
       round: 0,
+      maxRounds: 10,
       status: 'preparing',
       teams: {
         alpha: [],
@@ -50,6 +51,14 @@ export class BattleSystem {
     }
     
     this.state.round++;
+    
+    if (this.state.round > this.state.maxRounds) {
+      this.state.status = 'completed';
+      const alphaHP = this.state.teams.alpha.reduce((sum, unit) => sum + unit.currentHP, 0);
+      const betaHP = this.state.teams.beta.reduce((sum, unit) => sum + unit.currentHP, 0);
+      this.state.winner = alphaHP > betaHP ? 'alpha' : betaHP > alphaHP ? 'beta' : 'draw';
+      return;
+    }
     
     this.regenerateMana();
     
