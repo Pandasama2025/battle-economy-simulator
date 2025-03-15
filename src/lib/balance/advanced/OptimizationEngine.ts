@@ -1,650 +1,278 @@
-import { SimulationResult, AdvancedOptimizationConfig, BalanceReport } from '@/types/balance';
+import { SimulationResult, AdvancedOptimizationConfig } from '@/types/balance';
+import { BattleConfiguration } from '@/types/battle';
+import { EconomyConfiguration } from '@/types/economy';
 
-/**
- * 高级平衡优化引擎
- */
+export interface OptimizationEngineConfiguration extends AdvancedOptimizationConfig {
+  randomSeed?: number;
+}
+
 export class OptimizationEngine {
-  private config: AdvancedOptimizationConfig;
+  private config: OptimizationEngineConfiguration;
   private simulationResults: SimulationResult[] = [];
+  private bestScore: number = 0;
+  private bestParams: Record<string, number> = {};
+  private iterationCount: number = 0;
+  private startTime: number = 0;
+  private stopSignal: boolean = false;
   
-  constructor(config: AdvancedOptimizationConfig) {
+  constructor(config: OptimizationEngineConfiguration) {
     this.config = config;
   }
   
-  /**
-   * 获取所有模拟结果
-   */
-  getSimulationResults(): SimulationResult[] {
+  public getSimulationResults(): SimulationResult[] {
     return this.simulationResults;
   }
   
-  /**
-   * 模拟战斗
-   */
-  simulateBattle = (params: Record<string, number>): number => {
-    // 示例：根据参数计算战斗得分
-    let score = 50;
-    
-    if (params.attack > params.defense) {
-      score += 10;
-    } else {
-      score -= 5;
-    }
-    
-    score += params.strategyEffectiveness * 5;
-    
-    return score;
-  };
+  public stop(): void {
+    this.stopSignal = true;
+  }
   
-  /**
-   * 模拟经济
-   */
-  simulateEconomy = (params: Record<string, number>): number => {
-    // 示例：根据参数计算经济得分
-    let score = 50;
-    
-    score += params.resourceGrowthRate * 10;
-    score -= params.inflationRate * 5;
-    
-    return score;
-  };
+  private shouldStop(): boolean {
+    return this.stopSignal;
+  }
   
-  /**
-   * 模拟单位属性
-   */
-  simulateUnitStats = (params: Record<string, number>): Record<string, number> => {
-    // 示例：根据参数计算单位属性
-    const unitStats: Record<string, number> = {
-      health: 100 + params.healthBonus,
-      attack: 20 + params.attackBonus,
-      speed: 10 + params.speedBonus
+  public async optimize(
+    initialParams: Record<string, number>,
+    paramRanges: Record<string, [number, number]>,
+    evaluateParameters: (params: Record<string, number>) => Promise<number>,
+    progressCallback?: (progress: number, bestScore: number) => void
+  ): Promise<SimulationResult> {
+    this.simulationResults = [];
+    this.bestScore = 0;
+    this.bestParams = { ...initialParams };
+    this.iterationCount = 0;
+    this.startTime = Date.now();
+    this.stopSignal = false;
+    
+    let bestResult: SimulationResult = {
+      params: { ...initialParams },
+      balanceScore: 0,
+      winRates: {},
+      economyMetrics: {},
+      metadata: {}
     };
     
-    return unitStats;
-  };
-  
-  /**
-   * 模拟玩家行为
-   */
-  simulatePlayerBehavior = (params: Record<string, number>): number => {
-    // 示例：根据参数计算玩家行为得分
-    let score = 50;
+    const maxTrials = this.config.configuration.maxTrials || 20;
+    const iterationsPerTrial = this.config.configuration.iterationsPerTrial || 10;
+    const explorationWeight = this.config.configuration.explorationWeight || 0.3;
+    const learningRate = this.config.configuration.learningRate || 0.05;
+    const regularizationStrength = this.config.configuration.regularizationStrength || 0.01;
+    const convergenceTolerance = this.config.configuration.convergenceTolerance || 0.001;
+    const earlyStopping = this.config.configuration.earlyStopping || true;
     
-    score += params.aggressionLevel * 10;
-    score += params.strategyAdaptability * 5;
+    let currentParams = { ...initialParams };
+    let bestScore = 0;
+    let lastImprovement = Date.now();
     
-    return score;
-  };
-  
-  /**
-   * 模拟派系效果
-   */
-  simulateFactionEffects = (params: Record<string, number>): number => {
-    // 示例：根据参数计算派系效果得分
-    let score = 50;
-    
-    score += params.factionBonus * 10;
-    score += params.synergyEffectiveness * 5;
-    
-    return score;
-  };
-  
-  /**
-   * 评估平衡性
-   */
-  evaluateBalance = (params: Record<string, number>): number => {
-    // 示例：综合评估所有模拟结果
-    let balanceScore = 0;
-    
-    balanceScore += this.simulateBattle(params) * 0.3;
-    balanceScore += this.simulateEconomy(params) * 0.2;
-    balanceScore += this.simulatePlayerBehavior(params) * 0.2;
-    balanceScore += this.simulateFactionEffects(params) * 0.3;
-    
-    // 添加一些随机性，但如果使用种子则保持确定性
-    if (this.config.randomSeed) {
-      // 使用专用的伪随机数生成器
-      const seededRandom = this.getSeededRandom(this.config.randomSeed);
-      balanceScore += (seededRandom() * 2 - 1) * 5;
-    } else {
-      balanceScore += (Math.random() * 2 - 1) * 5;
-    }
-    
-    return Math.max(0, Math.min(100, balanceScore));
-  };
-  
-  /**
-   * 梯度提升优化算法
-   */
-  gradientBoostingOptimization = async (
-    initialParams: Record<string, number>,
-    paramRanges: Record<string, [number, number]>,
-    evaluateFunction: (params: Record<string, number>) => Promise<number>,
-    progressCallback?: (progress: number, bestScore: number) => void
-  ): Promise<SimulationResult> => {
-    return new Promise<SimulationResult>((resolve) => {
-      setTimeout(() => {
-        const bestParams = { ...initialParams };
-        let bestScore = 0;
+    for (let trial = 0; trial < maxTrials; trial++) {
+      if (this.shouldStop()) break;
+      
+      for (let iteration = 0; iteration < iterationsPerTrial; iteration++) {
+        if (this.shouldStop()) break;
         
-        for (let i = 0; i < this.config.configuration.maxTrials; i++) {
-          const trialParams = { ...bestParams };
-          
-          for (const param in paramRanges) {
-            const range = paramRanges[param];
-            const change = (Math.random() * 2 - 1) * (range[1] - range[0]) * this.config.configuration.learningRate!;
-            trialParams[param] = Math.max(range[0], Math.min(range[1], bestParams[param] + change));
-          }
-          
-          evaluateFunction(trialParams).then(score => {
-            if (score > bestScore) {
-              bestScore = score;
-              Object.assign(bestParams, trialParams);
-            }
-            
-            const progress = (i + 1) / this.config.configuration.maxTrials;
-            progressCallback?.(progress, bestScore);
-            
-            if (i === this.config.configuration.maxTrials - 1) {
-              const result: SimulationResult = {
-                params: bestParams,
-                winRates: {},
-                economyMetrics: {},
-                balanceScore: bestScore,
-                metadata: {
-                  timestamp: Date.now(),
-                  configId: 'gradientBoosting',
-                  randomSeed: this.config.randomSeed,
-                  iterationCount: this.config.configuration.maxTrials
-                }
-              };
-              
-              this.simulationResults.push(result);
-              resolve(result);
-            }
+        this.iterationCount++;
+        
+        // Explore or Exploit
+        if (Math.random() < explorationWeight) {
+          // Exploration: Randomly adjust parameters
+          Object.keys(paramRanges).forEach(param => {
+            const [min, max] = paramRanges[param];
+            currentParams[param] = min + Math.random() * (max - min);
+          });
+        } else {
+          // Exploitation: Adjust parameters based on gradient
+          Object.keys(paramRanges).forEach(param => {
+            const [min, max] = paramRanges[param];
+            const gradient = this.calculateGradient(currentParams, param, evaluateParameters);
+            currentParams[param] += learningRate * gradient - regularizationStrength * currentParams[param];
+            currentParams[param] = Math.max(min, Math.min(max, currentParams[param])); // Clamp
           });
         }
-      }, 10);
-    });
-  };
-  
-  /**
-   * 贝叶斯优化算法
-   */
-  bayesianOptimization = async (
-    initialParams: Record<string, number>,
-    paramRanges: Record<string, [number, number]>,
-    evaluateFunction: (params: Record<string, number>) => Promise<number>,
-    progressCallback?: (progress: number, bestScore: number) => void
-  ): Promise<SimulationResult> => {
-    return new Promise<SimulationResult>((resolve) => {
-      setTimeout(() => {
-        const bestParams = { ...initialParams };
-        let bestScore = 0;
         
-        for (let i = 0; i < this.config.configuration.maxTrials; i++) {
-          const trialParams = { ...bestParams };
-          
-          for (const param in paramRanges) {
-            const range = paramRanges[param];
-            const explorationFactor = this.config.configuration.explorationWeight;
-            const randomValue = Math.random() * (range[1] - range[0]) * explorationFactor;
-            trialParams[param] = Math.max(range[0], Math.min(range[1], bestParams[param] + randomValue));
-          }
-          
-          evaluateFunction(trialParams).then(score => {
-            if (score > bestScore) {
-              bestScore = score;
-              Object.assign(bestParams, trialParams);
-            }
-            
-            const progress = (i + 1) / this.config.configuration.maxTrials;
-            progressCallback?.(progress, bestScore);
-            
-            if (i === this.config.configuration.maxTrials - 1) {
-              const result: SimulationResult = {
-                params: bestParams,
-                winRates: {},
-                economyMetrics: {},
-                balanceScore: bestScore,
-                metadata: {
-                  timestamp: Date.now(),
-                  configId: 'bayesian',
-                  randomSeed: this.config.randomSeed,
-                  iterationCount: this.config.configuration.maxTrials
-                }
-              };
-              
-              this.simulationResults.push(result);
-              resolve(result);
-            }
-          });
-        }
-      }, 10);
-    });
-  };
-  
-  /**
-   * 进化算法优化
-   */
-  evolutionOptimization = async (
-    initialParams: Record<string, number>,
-    paramRanges: Record<string, [number, number]>,
-    evaluateFunction: (params: Record<string, number>) => Promise<number>,
-    progressCallback?: (progress: number, bestScore: number) => void
-  ): Promise<SimulationResult> => {
-    return new Promise<SimulationResult>((resolve) => {
-      setTimeout(() => {
-        const populationSize = 10;
-        let population: Record<string, number>[] = [];
-        
-        // 初始化种群
-        for (let i = 0; i < populationSize; i++) {
-          const individual: Record<string, number> = {};
-          for (const param in paramRanges) {
-            const range = paramRanges[param];
-            individual[param] = range[0] + Math.random() * (range[1] - range[0]);
-          }
-          population.push(individual);
+        // Add a deterministic test seed
+        if (this.config.randomSeed) {
+          currentParams['_testSeed'] = this.generateSeededRandom(this.config.randomSeed + this.iterationCount);
         }
         
-        let bestParams = { ...initialParams };
-        let bestScore = 0;
+        // Evaluate parameters
+        const score = await evaluateParameters(currentParams);
         
-        for (let i = 0; i < this.config.configuration.maxTrials; i++) {
-          // 评估种群
-          const scores = population.map(individual => evaluateFunction(individual));
-          
-          Promise.all(scores).then(scores => {
-            // 选择
-            const selectedIndices: number[] = [];
-            for (let j = 0; j < populationSize; j++) {
-              let bestIndex = 0;
-              for (let k = 1; k < scores.length; k++) {
-                if (scores[k] > scores[bestIndex]) {
-                  bestIndex = k;
-                }
-              }
-              selectedIndices.push(bestIndex);
-              scores[bestIndex] = -Infinity; // 避免重复选择
-            }
-            
-            // 交叉
-            const newPopulation: Record<string, number>[] = [];
-            for (let j = 0; j < populationSize; j++) {
-              const parent1 = population[selectedIndices[j]];
-              const parent2 = population[selectedIndices[(j + 1) % populationSize]];
-              const child: Record<string, number> = {};
-              for (const param in paramRanges) {
-                child[param] = Math.random() < 0.5 ? parent1[param] : parent2[param];
-              }
-              newPopulation.push(child);
-            }
-            
-            // 变异
-            for (let j = 0; j < populationSize; j++) {
-              for (const param in paramRanges) {
-                if (Math.random() < 0.1) {
-                  const range = paramRanges[param];
-                  newPopulation[j][param] = range[0] + Math.random() * (range[1] - range[0]);
-                }
-              }
-            }
-            
-            population = newPopulation;
-            
-            // 找到最佳个体
-            let currentBestScore = 0;
-            let currentBestParams = { ...initialParams };
-            for (let j = 0; j < populationSize; j++) {
-              evaluateFunction(population[j]).then(score => {
-                if (score > currentBestScore) {
-                  currentBestScore = score;
-                  currentBestParams = population[j];
-                }
-                
-                if (score > bestScore) {
-                  bestScore = score;
-                  bestParams = population[j];
-                }
-                
-                if (j === populationSize - 1) {
-                  const progress = (i + 1) / this.config.configuration.maxTrials;
-                  progressCallback?.(progress, bestScore);
-                  
-                  if (i === this.config.configuration.maxTrials - 1) {
-                    const result: SimulationResult = {
-                      params: bestParams,
-                      winRates: {},
-                      economyMetrics: {},
-                      balanceScore: bestScore,
-                      metadata: {
-                        timestamp: Date.now(),
-                        configId: 'evolution',
-                        randomSeed: this.config.randomSeed,
-                        iterationCount: this.config.configuration.maxTrials
-                      }
-                    };
-                    
-                    this.simulationResults.push(result);
-                    resolve(result);
-                  }
-                }
-              });
-            }
-          });
-        }
-      }, 10);
-    });
-  };
-  
-  /**
-   * 强化学习优化
-   */
-  reinforcementLearningOptimization = async (
-    initialParams: Record<string, number>,
-    paramRanges: Record<string, [number, number]>,
-    evaluateFunction: (params: Record<string, number>) => Promise<number>,
-    progressCallback?: (progress: number, bestScore: number) => void
-  ): Promise<SimulationResult> => {
-    return new Promise<SimulationResult>((resolve) => {
-      setTimeout(() => {
-        const learningRate = 0.1;
-        const discountFactor = 0.9;
-        let qTable: Record<string, Record<string, number>> = {};
-        
-        const getState = (params: Record<string, number>): string => {
-          let state = '';
-          for (const param in params) {
-            state += `${param}:${params[param].toFixed(2)},`;
+        // Collect simulation result
+        const result: SimulationResult = {
+          params: { ...currentParams },
+          balanceScore: score,
+          winRates: {},
+          economyMetrics: {},
+          metadata: {
+            trial: trial,
+            iteration: iteration,
+            iterationCount: this.iterationCount,
+            elapsedTime: Date.now() - this.startTime
           }
-          return state;
         };
         
-        const getAction = (state: string): string => {
-          if (!qTable[state]) {
-            qTable[state] = {};
-            for (const param in paramRanges) {
-              qTable[state][`increase_${param}`] = 0;
-              qTable[state][`decrease_${param}`] = 0;
-            }
-          }
-          
-          let bestAction = '';
-          let bestValue = -Infinity;
-          for (const action in qTable[state]) {
-            if (qTable[state][action] > bestValue) {
-              bestValue = qTable[state][action];
-              bestAction = action;
-            }
-          }
-          
-          if (Math.random() < this.config.configuration.explorationWeight) {
-            const actions = Object.keys(qTable[state]);
-            return actions[Math.floor(Math.random() * actions.length)];
-          }
-          
-          return bestAction;
-        };
+        this.simulationResults.push(result);
         
-        let bestParams = { ...initialParams };
-        let bestScore = 0;
-        
-        let currentState = getState(bestParams);
-        
-        for (let i = 0; i < this.config.configuration.maxTrials; i++) {
-          const action = getAction(currentState);
-          const trialParams = { ...bestParams };
-          
-          const [actionType, param] = action.split('_');
-          const range = paramRanges[param];
-          const change = (range[1] - range[0]) * 0.05;
-          
-          if (actionType === 'increase') {
-            trialParams[param] = Math.min(range[1], trialParams[param] + change);
-          } else {
-            trialParams[param] = Math.max(range[0], trialParams[param] - change);
-          }
-          
-          const newState = getState(trialParams);
-          
-          evaluateFunction(trialParams).then(score => {
-            const reward = score;
-            
-            if (!qTable[currentState]) {
-              qTable[currentState] = {};
-            }
-            if (!qTable[currentState][action]) {
-              qTable[currentState][action] = 0;
-            }
-            
-            let maxValueNewState = 0;
-            if (qTable[newState]) {
-              maxValueNewState = Math.max(...Object.values(qTable[newState]));
-            }
-            
-            qTable[currentState][action] = qTable[currentState][action] + learningRate * (reward + discountFactor * maxValueNewState - qTable[currentState][action]);
-            
-            if (score > bestScore) {
-              bestScore = score;
-              bestParams = trialParams;
-            }
-            
-            currentState = newState;
-            
-            const progress = (i + 1) / this.config.configuration.maxTrials;
-            progressCallback?.(progress, bestScore);
-            
-            if (i === this.config.configuration.maxTrials - 1) {
-              const result: SimulationResult = {
-                params: bestParams,
-                winRates: {},
-                economyMetrics: {},
-                balanceScore: bestScore,
-                metadata: {
-                  timestamp: Date.now(),
-                  configId: 'reinforcementLearning',
-                  randomSeed: this.config.randomSeed,
-                  iterationCount: this.config.configuration.maxTrials
-                }
-              };
-              
-              this.simulationResults.push(result);
-              resolve(result);
-            }
-          });
+        // Update best score
+        if (score > bestScore) {
+          bestScore = score;
+          bestResult = result;
+          this.bestParams = { ...currentParams };
+          this.bestScore = score;
+          lastImprovement = Date.now();
         }
-      }, 10);
-    });
-  };
-
-  // 优化算法方法，需要根据配置选择不同算法
-  optimize = async (
-    initialParams: Record<string, number>,
-    paramRanges: Record<string, [number, number]>,
-    evaluateFunction: (params: Record<string, number>) => Promise<number>,
-    progressCallback?: (progress: number, bestScore: number) => void
-  ): Promise<SimulationResult> => {
-    this.simulationResults = [];
-    
-    let bestResult: SimulationResult;
-    
-    switch (this.config.optimizationMethod) {
-      case 'gradientBoosting':
-        bestResult = await this.gradientBoostingOptimization(initialParams, paramRanges, evaluateFunction, progressCallback);
+        
+        // Progress callback
+        if (progressCallback) {
+          progressCallback((trial * iterationsPerTrial + iteration) / (maxTrials * iterationsPerTrial), bestScore);
+        }
+      }
+      
+      // Early stopping check
+      if (earlyStopping && Date.now() - lastImprovement > 5000) {
+        console.log('Early stopping triggered');
         break;
-      case 'bayesian':
-        bestResult = await this.bayesianOptimization(initialParams, paramRanges, evaluateFunction, progressCallback);
-        break;
-      case 'evolution':
-        bestResult = await this.evolutionOptimization(initialParams, paramRanges, evaluateFunction, progressCallback);
-        break;
-      case 'reinforcementLearning':
-        bestResult = await this.reinforcementLearningOptimization(initialParams, paramRanges, evaluateFunction, progressCallback);
-        break;
-      default:
-        throw new Error(`Unsupported optimization method: ${this.config.optimizationMethod}`);
+      }
     }
     
     return bestResult;
-  };
+  }
   
-  // 转换派系参数为数值参数
-  const convertFactionToNumeric = (factionParams: Record<string, string | number>): Record<string, number> => {
-    const result: Record<string, number> = {};
+  private calculateGradient(
+    params: Record<string, number>,
+    paramName: string,
+    evaluateParameters: (params: Record<string, number>) => Promise<number>
+  ): number {
+    const originalValue = params[paramName];
+    const stepSize = originalValue * 0.01; // 1% step
     
-    // 遍历所有参数并确保它们是数字
-    for (const [key, value] of Object.entries(factionParams)) {
-      if (typeof value === 'string') {
-        // 将字符串值转换为数字编码
-        // 这里使用简单的哈希函数将字符串转换为数字
-        result[key] = this.stringToNumericHash(value as string);
-      } else {
-        result[key] = value as number;
-      }
+    const paramsPlus = { ...params };
+    paramsPlus[paramName] = originalValue + stepSize;
+    
+    const paramsMinus = { ...params };
+    paramsMinus[paramName] = originalValue - stepSize;
+    
+    const scorePlusPromise = evaluateParameters(paramsPlus);
+    const scoreMinusPromise = evaluateParameters(paramsMinus);
+    
+    return Promise.all([scorePlusPromise, scoreMinusPromise])
+      .then(([scorePlus, scoreMinus]) => {
+        return (scorePlus - scoreMinus) / (2 * stepSize);
+      })
+      .catch(error => {
+        console.error("Error calculating gradient:", error);
+        return 0;
+      });
+  }
+  
+  public generateBalanceReport(): any {
+    if (this.simulationResults.length === 0) {
+      return { message: "No simulation results available." };
     }
     
-    return result;
-  };
-  
-  // 简单的字符串哈希函数，将字符串转换为0-1之间的数字
-  stringToNumericHash = (str: string): number => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i);
-      hash |= 0; // 转换为32位整数
-    }
-    // 将hash值映射到0-1之间
-    return (Math.abs(hash) % 1000) / 1000;
-  };
-  
-  // 获取确定性随机数生成器
-  getSeededRandom = (seed: number): () => number => {
-    let _seed = seed;
-    return function() {
-      _seed = (_seed * 9301 + 49297) % 233280;
-      return _seed / 233280;
-    };
-  };
-  
-  // 生成一个测试配置
-  generateTestConfig = (paramRanges: Record<string, [number, number]>, iteration: number): Record<string, number> => {
-    const testConfig: Record<string, number> = {};
-    for (const param in paramRanges) {
-      const range = paramRanges[param];
-      testConfig[param] = range[0] + Math.random() * (range[1] - range[0]);
-    }
-    testConfig['_testSeed'] = iteration;
-    return testConfig;
-  };
-
-  // 生成平衡报告
-  generateBalanceReport = (): BalanceReport => {
-    const overallScore = this.evaluateBalance(this.simulationResults[this.simulationResults.length - 1].params);
-    const confidence = 0.95;
+    const bestResult = this.simulationResults.reduce((prev, current) => (prev.balanceScore > current.balanceScore) ? prev : current);
     
-    const analyzeUnitBalance = () => {
-      return {
-        winRateDeviation: 0.1,
-        usageRateDeviation: 0.05,
-        powerCurveSlope: 0.2,
-        mostProblematicUnits: []
-      };
+    const report = {
+      summary: {
+        bestScore: bestResult.balanceScore,
+        numIterations: this.simulationResults.length,
+        elapsedTime: Date.now() - this.startTime
+      },
+      parameterAnalysis: this.analyzeParameterSensitivity(),
+      scoreDistribution: this.calculateScoreDistribution(),
+      winRateAnalysis: this.analyzeWinRates(),
+      economyAnalysis: this.analyzeEconomyMetrics()
     };
     
-    // 派系分析示例
-    // 修改这部分代码，使用正确的数值参数
-    const analyzeFactionBalance = () => {
-      let topFactions: string[] = ['龙族', '精灵'];
-      let weakestFactions: string[] = ['亡灵', '人类'];
-      
-      // 派系羁绊效果分析 - 将字符串派系名称存储在单独的属性中
-      const primaryFactionData = {
-        factionName: '龙族',
-        effectiveness: 0.85
-      };
-      
-      // 必须将派系数据转换为纯数字类型的Record用于模拟
-      const primaryFactionNumeric = {
-        factionId: this.stringToNumericHash('dragon'), // 使用数字编码
-        effectiveness: 0.85
-      };
-      
-      // 双派系组合分析 - 将字符串派系名称存储在单独的属性中
-      const dualFactionData = {
-        primaryFactionName: '龙族',
-        secondaryFactionName: '精灵',
-        synergy: 0.75
-      };
-      
-      // 必须使用数字编码进行模拟计算
-      const dualFactionNumeric = {
-        primaryFactionId: this.stringToNumericHash('dragon'),
-        secondaryFactionId: this.stringToNumericHash('elf'),
-        synergy: 0.75
-      };
-      
-      // 现在可以安全地使用这些数字型参数进行模拟
-      const primaryResults = this.simulateFactionEffectiveness(primaryFactionNumeric);
-      const dualResults = this.simulateFactionSynergy(dualFactionNumeric);
-      
-      return {
-        topFactions,
-        weakestFactions,
-        bondThresholdEfficacy: {
-          '龙族': { 2: 0.15, 4: 0.3, 6: 0.5 },
-          '精灵': { 2: 0.1, 4: 0.2, 6: 0.4 }
-        },
-        factionSynergies: {
-          '龙族': ['攻击力', '生命值'],
-          '精灵': ['法术强度', '技能冷却']
+    return report;
+  }
+  
+  private analyzeParameterSensitivity(): any {
+    const params = Object.keys(this.simulationResults[0]?.params || {});
+    const sensitivities: Record<string, number[]> = {};
+    
+    params.forEach(param => {
+      sensitivities[param] = [];
+    });
+    
+    this.simulationResults.forEach(result => {
+      params.forEach(param => {
+        sensitivities[param].push(result.params[param] * result.balanceScore);
+      });
+    });
+    
+    return params.map(param => {
+      const values = sensitivities[param];
+      const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+      return { name: param, value: average };
+    }).sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+  }
+  
+  private calculateScoreDistribution(): any {
+    const distribution: Record<string, number> = {};
+    
+    this.simulationResults.forEach(result => {
+      const score = Math.floor(result.balanceScore / 10) * 10;
+      const range = `${score}-${score + 10}`;
+      distribution[range] = (distribution[range] || 0) + 1;
+    });
+    
+    return Object.entries(distribution).map(([range, count]) => ({ range, count }));
+  }
+  
+  private analyzeWinRates(): any {
+    const winRates: Record<string, number[]> = {};
+    
+    this.simulationResults.forEach(result => {
+      Object.entries(result.winRates).forEach(([unit, rate]) => {
+        if (!winRates[unit]) {
+          winRates[unit] = [];
         }
-      };
-    };
+        winRates[unit].push(rate);
+      });
+    });
     
-    const analyzeEconomyBalance = () => {
-      return {
-        goldProgression: [10, 20, 30, 40, 50],
-        resourceEfficiency: 0.8,
-        comebackMechanics: {
-          effectiveness: 0.6,
-          frequency: 0.3
-        },
-        ecomomyStrategies: []
-      };
-    };
+    return Object.entries(winRates).map(([unit, rates]) => {
+      const average = rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
+      return { unit, averageWinRate: average };
+    });
+  }
+  
+  private analyzeEconomyMetrics(): any {
+    const goldEfficiencies: number[] = [];
+    const itemUtilizations: number[] = [];
     
-    const recommendations = [];
+    this.simulationResults.forEach(result => {
+      goldEfficiencies.push(result.economyMetrics.goldEfficiency || 0);
+      itemUtilizations.push(result.economyMetrics.itemUtilization || 0);
+    });
     
-    const unitBalance = analyzeUnitBalance();
-    const factionBalance = analyzeFactionBalance();
-    const economyBalance = analyzeEconomyBalance();
+    const avgGoldEfficiency = goldEfficiencies.reduce((sum, val) => sum + val, 0) / goldEfficiencies.length;
+    const avgItemUtilization = itemUtilizations.reduce((sum, val) => sum + val, 0) / itemUtilizations.length;
     
     return {
-      overallScore,
-      confidence,
-      unitBalance,
-      factionBalance,
-      economyBalance,
-      recommendations,
-      metadata: {
-        simulationCount: this.simulationResults.length,
-        totalRoundsSimulated: this.simulationResults.length * 100,
-        generationTimestamp: Date.now(),
-        dataVersionId: '1.0'
-      }
+      averageGoldEfficiency: avgGoldEfficiency,
+      averageItemUtilization: avgItemUtilization
     };
-  };
+  }
   
-  // 模拟派系效果 - 输入必须是Record<string, number>类型
-  simulateFactionEffectiveness = (params: Record<string, number>): number => {
-    // 使用数字型参数进行计算
-    return 0.6 + params.effectiveness * 0.4;
-  };
-  
-  // 模拟派系协同效果 - 输入必须是Record<string, number>类型
-  simulateFactionSynergy = (params: Record<string, number>): number => {
-    // 使用数字型参数进行计算
-    return params.synergy * (1 + Math.random() * 0.2);
-  };
+  private generateSeededRandom(seed: number): number {
+    let _seed = seed;
+    _seed = (_seed * 9301 + 49297) % 233280;
+    return _seed / 233280;
+  }
+
+  private stringToNumericHash(str: string): number {
+    let hash = 0;
+    if (str.length === 0) return hash;
+    
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    // Ensure positive value and map to reasonable range for simulation
+    return Math.abs(hash) % 10000 / 10000;
+  }
 }
