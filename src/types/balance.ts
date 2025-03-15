@@ -1,3 +1,4 @@
+
 /**
  * 平衡模拟结果
  */
@@ -14,10 +15,18 @@ export interface SimulationResult {
   // 平衡性综合得分 (0-100)
   balanceScore: number;
   
+  // 信心区间 (新增)
+  confidenceInterval?: {
+    lower: number;
+    upper: number;
+  };
+  
   // 元数据
   metadata: {
     timestamp: number;
     configId: string;
+    randomSeed?: number; // 新增随机种子
+    iterationCount?: number; // 新增迭代次数
     [key: string]: any;
   };
 }
@@ -175,4 +184,238 @@ export interface PlayerBehaviorSimulation {
   
   // 回合数
   roundsToSimulate: number;
+}
+
+/**
+ * 派系定义 (新增)
+ */
+export interface Faction {
+  id: string;
+  name: string;
+  description: string;
+  
+  // 羁绊阈值与效果
+  bondThresholds: number[];
+  bondEffects: {
+    [threshold: number]: {
+      description: string;
+      statModifiers: Record<string, number>;
+      specialEffects?: string[];
+    }
+  };
+  
+  // 派系特殊机制
+  specialMechanics?: {
+    name: string;
+    description: string;
+    triggerCondition: string;
+    effect: string;
+    scalingFactor?: number;
+  }[];
+  
+  // 派系克制关系
+  counterRelationships?: {
+    strong: string[];
+    weak: string[];
+  };
+}
+
+/**
+ * 装备系统 (新增)
+ */
+export interface EquipmentSystem {
+  // 装备定义
+  items: {
+    [itemId: string]: {
+      name: string;
+      rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
+      statModifiers: Record<string, number>;
+      specialEffects?: {
+        description: string;
+        conditions?: string;
+        scaling?: Record<string, number>;
+      }[];
+    }
+  };
+  
+  // 装备组合效果
+  setCombinations: {
+    [setName: string]: {
+      requiredItems: string[];
+      bonusEffect: {
+        description: string;
+        statModifiers: Record<string, number>;
+        specialEffect?: string;
+      }
+    }
+  };
+  
+  // 单位-装备适配性
+  equipmentAffinities: {
+    [unitType: string]: {
+      [itemId: string]: number; // 适配系数 (0.5-2.0)
+    }
+  };
+}
+
+/**
+ * 战斗分析结果 (新增)
+ */
+export interface BattleAnalysis {
+  // 战斗概述
+  summary: {
+    totalRounds: number;
+    winner: string;
+    winningTeamRemaining: number; // 胜利方剩余单位百分比
+    averageDamagePerRound: number;
+    totalDamageDealt: Record<string, number>; // 按单位类型
+    totalHealing: Record<string, number>; // 按单位类型
+    criticalHitRate: number;
+    crowdControlDuration: number; // 总控制时长(秒)
+  };
+  
+  // 回合分析
+  roundByRound: {
+    round: number;
+    dominanceScore: number; // -1到1, 负数表示B队占优势
+    keyEvents: string[];
+    damageDistribution: Record<string, number>;
+  }[];
+  
+  // 单位表现
+  unitPerformance: {
+    unitId: string;
+    unitType: string;
+    damageDone: number;
+    damageTaken: number;
+    healing: number;
+    crowdControlInflicted: number;
+    crowdControlReceived: number;
+    survivalTime: number;
+    effectiveValue: number; // 综合战斗价值
+  }[];
+  
+  // 技能使用分析
+  skillAnalysis: {
+    skillId: string;
+    useCount: number;
+    averageValue: number;
+    hitRate: number;
+    criticalRate: number;
+  }[];
+}
+
+/**
+ * 高级平衡优化配置 (新增)
+ */
+export interface AdvancedOptimizationConfig {
+  // 随机种子设置
+  randomSeed?: number;
+  useDeterministicMode: boolean;
+  
+  // 优化算法选择
+  optimizationMethod: 'bayesian' | 'evolution' | 'gradientBoosting' | 'reinforcementLearning';
+  
+  // 高级配置
+  configuration: {
+    iterationsPerTrial: number;
+    maxTrials: number;
+    explorationWeight: number;
+    learningRate?: number;
+    regularizationStrength?: number;
+    convergenceTolerance: number;
+    earlyStopping: boolean;
+    parallelTrials: number;
+  };
+  
+  // 目标指标权重
+  objectiveWeights: {
+    balanceScore: number;
+    unitDiversity: number;
+    strategyDiversity: number;
+    matchDuration: number;
+    economyProgression: number;
+    [key: string]: number;
+  };
+  
+  // 约束条件
+  constraints: {
+    maxWinRateDeviation: number;
+    minEffectiveUnitPercentage: number;
+    maxMatchDurationVariance: number;
+    requireAllUnitsViable: boolean;
+    [key: string]: any;
+  };
+}
+
+/**
+ * 日志系统 (新增)
+ */
+export interface LogEntry {
+  timestamp: number;
+  level: 'debug' | 'info' | 'warning' | 'error';
+  category: string;
+  message: string;
+  details?: any;
+}
+
+/**
+ * 平衡报告 (新增)
+ */
+export interface BalanceReport {
+  // 总体评分
+  overallScore: number;
+  confidence: number;
+  
+  // 单位平衡性评估
+  unitBalance: {
+    winRateDeviation: number;
+    usageRateDeviation: number;
+    powerCurveSlope: number; // 早期到后期的强度曲线
+    mostProblematicUnits: {
+      unitId: string;
+      issue: string;
+      severity: number;
+      recommendation: string;
+    }[];
+  };
+  
+  // 派系平衡性评估
+  factionBalance: {
+    topFactions: string[];
+    weakestFactions: string[];
+    bondThresholdEfficacy: Record<string, Record<number, number>>;
+    factionSynergies: Record<string, string[]>;
+  };
+  
+  // 经济平衡性评估
+  economyBalance: {
+    goldProgression: number[];
+    resourceEfficiency: number;
+    comebackMechanics: {
+      effectiveness: number;
+      frequency: number;
+    };
+    ecomomyStrategies: {
+      strategy: string;
+      successRate: number;
+    }[];
+  };
+  
+  // 解决方案建议
+  recommendations: {
+    priority: 'high' | 'medium' | 'low';
+    category: string;
+    issue: string;
+    solution: string;
+    expectedImpact: number;
+  }[];
+  
+  // 元数据
+  metadata: {
+    simulationCount: number;
+    totalRoundsSimulated: number;
+    generationTimestamp: number;
+    dataVersionId: string;
+  };
 }
