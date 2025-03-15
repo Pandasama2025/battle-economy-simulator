@@ -1,3 +1,4 @@
+
 // ���斗系统类型定义
 
 export type UnitType = "Warrior" | "Mage" | "Archer" | "Knight" | "Priest" | "Assassin" | "Merchant";
@@ -127,7 +128,7 @@ export interface TerrainEffect {
 export interface BattleState {
   id: string;
   round: number;
-  maxRounds: number; // Adding this missing property
+  maxRounds: number;
   status: "preparing" | "inProgress" | "completed";
   teams: {
     alpha: Unit[];
