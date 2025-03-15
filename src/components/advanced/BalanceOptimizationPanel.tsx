@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -84,7 +83,7 @@ const BalanceOptimizationPanel: React.FC<BalanceOptimizationPanelProps> = ({
   
   // 派系配置
   const [selectedFactions, setSelectedFactions] = useState<string[]>(['龙族', '精灵']);
-  const [factionMechanics, setFactionMechanics] = useState({
+  const [factionMechanics, setFactionMechanics] = useState<Record<string, number>>({
     'dragon_evolution_rounds': 4,
     'elf_elemental_reaction': 0.3,
     'mechanical_heat_generation': 2.5
@@ -121,14 +120,14 @@ const BalanceOptimizationPanel: React.FC<BalanceOptimizationPanelProps> = ({
   const updateAdvancedConfig = (path: string[], value: any) => {
     setAdvancedConfig(prev => {
       const newConfig = { ...prev };
-      let current = newConfig;
+      let current = newConfig as any;
       
       for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i] as keyof typeof current] as any;
+        current = current[path[i]];
       }
       
       const lastKey = path[path.length - 1];
-      current[lastKey as keyof typeof current] = value;
+      current[lastKey] = value;
       
       return newConfig;
     });
@@ -915,7 +914,7 @@ const BalanceOptimizationPanel: React.FC<BalanceOptimizationPanelProps> = ({
                             dataKey="physicalDefense" 
                             name="物理防御" 
                             domain={[0.01, 0.05]}
-                            tickFormatter={val => val.toFixed(3)} 
+                            tickFormatter={(val: number) => val.toFixed(3)} 
                           />
                           <YAxis 
                             type="number" 
@@ -931,9 +930,9 @@ const BalanceOptimizationPanel: React.FC<BalanceOptimizationPanelProps> = ({
                           />
                           <Tooltip 
                             cursor={{ strokeDasharray: '3 3' }}
-                            formatter={(value, name) => {
-                              if (name === 'balanceScore') return [value.toFixed(2), '平衡得分'];
-                              if (name === 'physicalDefense') return [value.toFixed(4), '物理防御'];
+                            formatter={(value: any, name: any) => {
+                              if (name === 'balanceScore') return [typeof value === 'number' ? value.toFixed(2) : value, '平衡得分'];
+                              if (name === 'physicalDefense') return [typeof value === 'number' ? value.toFixed(4) : value, '物理防御'];
                               return [value, name];
                             }} 
                           />
@@ -975,3 +974,4 @@ const BalanceOptimizationPanel: React.FC<BalanceOptimizationPanelProps> = ({
 };
 
 export default BalanceOptimizationPanel;
+
