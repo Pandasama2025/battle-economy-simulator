@@ -3,467 +3,318 @@ import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash, Edit, Save, X, Heart } from 'lucide-react';
-import { Unit, UnitType, RaceType, ProfessionType } from '@/types/battle';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useGameContext } from '@/context/GameContext';
+import { useToast } from '@/hooks/use-toast';
+import { Unit } from '@/types/battle';
+import { X, Save, Trash } from 'lucide-react';
 
-const DEFAULT_UNIT: Omit<Unit, 'id'> = {
-  name: '',
-  type: '战士',
-  race: '人类',
-  profession: '坦克',
-  level: 1,
-  team: 'alpha',
-  maxHP: 300,
-  currentHP: 300,
-  maxMana: 100,
-  currentMana: 50,
-  attack: 50,
-  defense: 30,
-  magicPower: 40,
-  magicResistance: 20,
-  speed: 15,
-  critRate: 0.1,
-  critDamage: 1.5,
-  position: { x: 0, y: 0 },
-  status: 'idle',
-  skills: [],
-  items: []
-};
+interface UnitEditorProps {
+  unit: Unit;
+  onClose: () => void;
+}
 
-const UNIT_TYPES: UnitType[] = [
-  '战士', '法师', '射手', '骑士', '牧师', '刺客', '商人'
-];
-
-const RACE_TYPES: RaceType[] = [
-  '人类', '精灵', '龙族', '亡灵', '机械', '元素'
-];
-
-const PROFESSION_TYPES: ProfessionType[] = [
-  '坦克', '输出', '辅助', '控制', '刺客'
-];
-
-const UnitEditor: React.FC = () => {
-  const { units, addUnit, updateUnit, deleteUnit } = useGameContext();
-  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
-  const [newUnit, setNewUnit] = useState<Omit<Unit, 'id'>>(DEFAULT_UNIT);
-  const [activeTab, setActiveTab] = useState('units');
-
-  const handleAddUnit = () => {
-    if (!newUnit.name.trim()) {
-      return; // 防止创建无名单位
+const UnitEditor: React.FC<UnitEditorProps> = ({ unit, onClose }) => {
+  const { updateUnit, deleteUnit, factions } = useGameContext();
+  const { toast } = useToast();
+  
+  const [editedUnit, setEditedUnit] = useState<Unit>({ ...unit });
+  
+  const handleUpdateField = (field: keyof Unit, value: any) => {
+    setEditedUnit(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+  
+  const handleSave = () => {
+    if (!editedUnit.name.trim()) {
+      toast({
+        title: "保存失败",
+        description: "单位名称不能为空",
+        variant: "destructive"
+      });
+      return;
     }
     
-    addUnit({
-      ...newUnit,
-      currentHP: newUnit.maxHP, // 确保当前生命值等于最大生命值
-      currentMana: newUnit.maxMana / 2, // 初始魔法值设为最大值的一半
-    });
-    
-    setNewUnit(DEFAULT_UNIT); // 重置表单
-  };
-
-  const handleDeleteUnit = (id: string) => {
-    deleteUnit(id);
-    if (editingUnit && editingUnit.id === id) {
-      setEditingUnit(null);
+    // 更新当前生命值以匹配最大生命值（如果最大生命值有变化）
+    if (editedUnit.maxHP !== unit.maxHP) {
+      editedUnit.currentHP = editedUnit.maxHP;
     }
-  };
-
-  const handleEditUnit = (unit: Unit) => {
-    setEditingUnit({ ...unit });
-  };
-
-  const handleSaveUnit = () => {
-    if (!editingUnit) return;
     
-    updateUnit(editingUnit.id, editingUnit);
-    setEditingUnit(null);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingUnit(null);
-  };
-
-  const handleNewUnitChange = (field: keyof Omit<Unit, 'id'>, value: any) => {
-    setNewUnit({
-      ...newUnit,
-      [field]: value
-    });
-  };
-
-  const handleEditingUnitChange = (field: keyof Unit, value: any) => {
-    if (!editingUnit) return;
+    updateUnit(unit.id, editedUnit);
     
-    setEditingUnit({
-      ...editingUnit,
-      [field]: value
+    toast({
+      title: "单位已更新",
+      description: `${editedUnit.name} 的属性已更新`,
     });
+    
+    onClose();
   };
-
+  
+  const handleDelete = () => {
+    deleteUnit(unit.id);
+    
+    toast({
+      title: "单位已删除",
+      description: `${unit.name} 已从游戏中删除`,
+    });
+    
+    onClose();
+  };
+  
   return (
-    <Card className="animate-fade-up">
-      <CardHeader>
-        <CardTitle>单位编辑器</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="units">单位列表</TabsTrigger>
-            <TabsTrigger value="add">添加单位</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="units" className="space-y-4">
-            {units.length === 0 ? (
-              <div className="text-center p-4 text-muted-foreground">
-                未添加任何单位，请切换到"添加单位"选项卡创建单位
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {units.map(unit => (
-                  <div 
-                    key={unit.id} 
-                    className="border rounded-md p-3 flex flex-col gap-2"
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="font-medium">{unit.name}</div>
-                      <div className="flex gap-1">
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          onClick={() => handleEditUnit(unit)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          onClick={() => handleDeleteUnit(unit.id)}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">类型: {unit.type}</div>
-                    <div className="text-sm text-muted-foreground">种族: {unit.race}</div>
-                    <div className="text-sm text-muted-foreground">职业: {unit.profession}</div>
-                    <div className="text-sm text-muted-foreground">生命值: {unit.maxHP}</div>
-                    <div className="text-sm text-muted-foreground">攻击力: {unit.attack}</div>
-                    <div className="text-sm text-muted-foreground">防御力: {unit.defense}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="add">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="name">单位名称</Label>
-                  <Input 
-                    id="name" 
-                    value={newUnit.name} 
-                    onChange={(e) => handleNewUnitChange('name', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="type">单位类型</Label>
-                  <select 
-                    id="type" 
-                    value={newUnit.type}
-                    onChange={(e) => handleNewUnitChange('type', e.target.value as UnitType)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {UNIT_TYPES.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="race">种族</Label>
-                  <select 
-                    id="race" 
-                    value={newUnit.race}
-                    onChange={(e) => handleNewUnitChange('race', e.target.value as RaceType)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {RACE_TYPES.map(race => (
-                      <option key={race} value={race}>{race}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="profession">职业</Label>
-                  <select 
-                    id="profession" 
-                    value={newUnit.profession}
-                    onChange={(e) => handleNewUnitChange('profession', e.target.value as ProfessionType)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {PROFESSION_TYPES.map(profession => (
-                      <option key={profession} value={profession}>{profession}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="team">队伍</Label>
-                  <select 
-                    id="team" 
-                    value={newUnit.team}
-                    onChange={(e) => handleNewUnitChange('team', e.target.value as 'alpha' | 'beta')}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value="alpha">Alpha</option>
-                    <option value="beta">Beta</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="level">等级</Label>
-                  <Input 
-                    id="level" 
-                    type="number" 
-                    value={newUnit.level}
-                    onChange={(e) => handleNewUnitChange('level', parseInt(e.target.value))} 
-                  />
-                </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>编辑单位: {unit.name}</CardTitle>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-unit-name">单位名称</Label>
+              <Input 
+                id="edit-unit-name" 
+                value={editedUnit.name} 
+                onChange={(e) => handleUpdateField('name', e.target.value)} 
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-unit-type">单位类型</Label>
+                <Select value={editedUnit.type} onValueChange={(value) => handleUpdateField('type', value)}>
+                  <SelectTrigger id="edit-unit-type">
+                    <SelectValue placeholder="选择单位类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="战士">战士</SelectItem>
+                    <SelectItem value="法师">法师</SelectItem>
+                    <SelectItem value="射手">射手</SelectItem>
+                    <SelectItem value="骑士">骑士</SelectItem>
+                    <SelectItem value="牧师">牧师</SelectItem>
+                    <SelectItem value="刺客">刺客</SelectItem>
+                    <SelectItem value="商人">商人</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="hp">生命值</Label>
-                  <Input 
-                    id="hp" 
-                    type="number" 
-                    value={newUnit.maxHP}
-                    onChange={(e) => handleNewUnitChange('maxHP', parseInt(e.target.value))} 
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="attack">攻击力</Label>
-                  <Input 
-                    id="attack" 
-                    type="number" 
-                    value={newUnit.attack}
-                    onChange={(e) => handleNewUnitChange('attack', parseInt(e.target.value))} 
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="defense">防御力</Label>
-                  <Input 
-                    id="defense" 
-                    type="number" 
-                    value={newUnit.defense}
-                    onChange={(e) => handleNewUnitChange('defense', parseInt(e.target.value))} 
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="speed">速度</Label>
-                  <Input 
-                    id="speed" 
-                    type="number" 
-                    value={newUnit.speed}
-                    onChange={(e) => handleNewUnitChange('speed', parseInt(e.target.value))} 
-                  />
-                </div>
+              <div>
+                <Label htmlFor="edit-unit-race">种族</Label>
+                <Select 
+                  value={editedUnit.race || ''}
+                  onValueChange={(value) => handleUpdateField('race', value)}
+                >
+                  <SelectTrigger id="edit-unit-race">
+                    <SelectValue placeholder="选择种族" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="人类">人类</SelectItem>
+                    <SelectItem value="精灵">精灵</SelectItem>
+                    <SelectItem value="兽人">兽人</SelectItem>
+                    <SelectItem value="矮人">矮人</SelectItem>
+                    <SelectItem value="亡灵">亡灵</SelectItem>
+                    <SelectItem value="龙族">龙族</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
-            <div className="mt-4 flex justify-end">
-              <Button onClick={handleAddUnit}>
-                <Plus className="h-4 w-4 mr-2" />
-                添加单位
-              </Button>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-unit-profession">职业</Label>
+                <Select 
+                  value={editedUnit.profession || ''}
+                  onValueChange={(value) => handleUpdateField('profession', value)}
+                >
+                  <SelectTrigger id="edit-unit-profession">
+                    <SelectValue placeholder="选择职业" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="战士">战士</SelectItem>
+                    <SelectItem value="法师">法师</SelectItem>
+                    <SelectItem value="猎人">猎人</SelectItem>
+                    <SelectItem value="骑士">骑士</SelectItem>
+                    <SelectItem value="牧师">牧师</SelectItem>
+                    <SelectItem value="刺客">刺客</SelectItem>
+                    <SelectItem value="商人">商人</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="edit-unit-faction">派系</Label>
+                <Select 
+                  value={editedUnit.faction || ''}
+                  onValueChange={(value) => handleUpdateField('faction', value || undefined)}
+                >
+                  <SelectTrigger id="edit-unit-faction">
+                    <SelectValue placeholder="选择派系" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">无派系</SelectItem>
+                    {factions.map(faction => (
+                      <SelectItem key={faction.id} value={faction.name}>
+                        {faction.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
-        
-        {editingUnit && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl">
-              <CardHeader>
-                <CardTitle>编辑单位</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <div>
-                      <Label htmlFor="edit-name">单位名称</Label>
-                      <Input 
-                        id="edit-name" 
-                        value={editingUnit.name} 
-                        onChange={(e) => handleEditingUnitChange('name', e.target.value)}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-type">单位类型</Label>
-                      <select 
-                        id="edit-type" 
-                        value={editingUnit.type}
-                        onChange={(e) => handleEditingUnitChange('type', e.target.value as UnitType)}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {UNIT_TYPES.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-race">种族</Label>
-                      <select 
-                        id="edit-race" 
-                        value={editingUnit.race}
-                        onChange={(e) => handleEditingUnitChange('race', e.target.value as RaceType)}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {RACE_TYPES.map(race => (
-                          <option key={race} value={race}>{race}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-profession">职业</Label>
-                      <select 
-                        id="edit-profession" 
-                        value={editingUnit.profession}
-                        onChange={(e) => handleEditingUnitChange('profession', e.target.value as ProfessionType)}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {PROFESSION_TYPES.map(profession => (
-                          <option key={profession} value={profession}>{profession}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-team">队伍</Label>
-                      <select 
-                        id="edit-team" 
-                        value={editingUnit.team}
-                        onChange={(e) => handleEditingUnitChange('team', e.target.value as 'alpha' | 'beta')}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <option value="alpha">Alpha</option>
-                        <option value="beta">Beta</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-level">等级</Label>
-                      <Input 
-                        id="edit-level" 
-                        type="number" 
-                        value={editingUnit.level}
-                        onChange={(e) => handleEditingUnitChange('level', parseInt(e.target.value))} 
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-hp">生命值</Label>
-                      <Input 
-                        id="edit-hp" 
-                        type="number" 
-                        value={editingUnit.maxHP}
-                        onChange={(e) => handleEditingUnitChange('maxHP', parseInt(e.target.value))} 
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <Label htmlFor="edit-attack">攻击力</Label>
-                      <Input 
-                        id="edit-attack" 
-                        type="number" 
-                        value={editingUnit.attack}
-                        onChange={(e) => handleEditingUnitChange('attack', parseInt(e.target.value))} 
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-defense">防御力</Label>
-                      <Input 
-                        id="edit-defense" 
-                        type="number" 
-                        value={editingUnit.defense}
-                        onChange={(e) => handleEditingUnitChange('defense', parseInt(e.target.value))} 
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-magic">魔法攻击</Label>
-                      <Input 
-                        id="edit-magic" 
-                        type="number" 
-                        value={editingUnit.magicPower}
-                        onChange={(e) => handleEditingUnitChange('magicPower', parseInt(e.target.value))} 
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-resistance">魔法抗性</Label>
-                      <Input 
-                        id="edit-resistance" 
-                        type="number" 
-                        value={editingUnit.magicResistance}
-                        onChange={(e) => handleEditingUnitChange('magicResistance', parseInt(e.target.value))} 
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-speed">速度</Label>
-                      <Input 
-                        id="edit-speed" 
-                        type="number" 
-                        value={editingUnit.speed}
-                        onChange={(e) => handleEditingUnitChange('speed', parseInt(e.target.value))} 
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="edit-crit">暴击率</Label>
-                      <Input 
-                        id="edit-crit" 
-                        type="number" 
-                        step="0.01" 
-                        min="0" 
-                        max="1"
-                        value={editingUnit.critRate}
-                        onChange={(e) => handleEditingUnitChange('critRate', parseFloat(e.target.value))} 
-                      />
-                    </div>
-                  </div>
+            
+            <div>
+              <Label htmlFor="edit-unit-level">等级: {editedUnit.level}</Label>
+              <Slider 
+                id="edit-unit-level" 
+                min={1} 
+                max={10} 
+                step={1} 
+                value={[editedUnit.level]} 
+                onValueChange={(value) => handleUpdateField('level', value[0])} 
+              />
+            </div>
+            
+            <Tabs defaultValue="combat">
+              <TabsList className="w-full">
+                <TabsTrigger value="combat" className="flex-1">战斗属性</TabsTrigger>
+                <TabsTrigger value="other" className="flex-1">其他属性</TabsTrigger>
+              </TabsList>
+              <TabsContent value="combat" className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="edit-unit-attack">攻击力: {editedUnit.attack}</Label>
+                  <Slider 
+                    id="edit-unit-attack" 
+                    min={1} 
+                    max={50} 
+                    step={1} 
+                    value={[editedUnit.attack]} 
+                    onValueChange={(value) => handleUpdateField('attack', value[0])} 
+                  />
                 </div>
                 
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button variant="outline" onClick={handleCancelEdit}>
-                    <X className="h-4 w-4 mr-2" />
-                    取消
-                  </Button>
-                  <Button onClick={handleSaveUnit}>
-                    <Save className="h-4 w-4 mr-2" />
-                    保存
-                  </Button>
+                <div>
+                  <Label htmlFor="edit-unit-defense">防御力: {editedUnit.defense}</Label>
+                  <Slider 
+                    id="edit-unit-defense" 
+                    min={0} 
+                    max={30} 
+                    step={1} 
+                    value={[editedUnit.defense]} 
+                    onValueChange={(value) => handleUpdateField('defense', value[0])} 
+                  />
                 </div>
-              </CardContent>
-            </Card>
+                
+                <div>
+                  <Label htmlFor="edit-unit-magic-power">魔法攻击: {editedUnit.magicPower}</Label>
+                  <Slider 
+                    id="edit-unit-magic-power" 
+                    min={0} 
+                    max={50} 
+                    step={1} 
+                    value={[editedUnit.magicPower]} 
+                    onValueChange={(value) => handleUpdateField('magicPower', value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-unit-magic-resistance">魔法抗性: {editedUnit.magicResistance}</Label>
+                  <Slider 
+                    id="edit-unit-magic-resistance" 
+                    min={0} 
+                    max={30} 
+                    step={1} 
+                    value={[editedUnit.magicResistance]} 
+                    onValueChange={(value) => handleUpdateField('magicResistance', value[0])} 
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="other" className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="edit-unit-hp">生命值: {editedUnit.maxHP}</Label>
+                  <Slider 
+                    id="edit-unit-hp" 
+                    min={50} 
+                    max={500} 
+                    step={10} 
+                    value={[editedUnit.maxHP]} 
+                    onValueChange={(value) => handleUpdateField('maxHP', value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-unit-speed">速度: {editedUnit.speed}</Label>
+                  <Slider 
+                    id="edit-unit-speed" 
+                    min={1} 
+                    max={20} 
+                    step={1} 
+                    value={[editedUnit.speed]} 
+                    onValueChange={(value) => handleUpdateField('speed', value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-unit-crit-rate">暴击率: {(editedUnit.critRate * 100).toFixed(0)}%</Label>
+                  <Slider 
+                    id="edit-unit-crit-rate" 
+                    min={0} 
+                    max={0.5} 
+                    step={0.01} 
+                    value={[editedUnit.critRate]} 
+                    onValueChange={(value) => handleUpdateField('critRate', value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-unit-crit-damage">暴击伤害: {editedUnit.critDamage.toFixed(1)}x</Label>
+                  <Slider 
+                    id="edit-unit-crit-damage" 
+                    min={1.1} 
+                    max={3} 
+                    step={0.1} 
+                    value={[editedUnit.critDamage]} 
+                    onValueChange={(value) => handleUpdateField('critDamage', value[0])} 
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+            
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="edit-team-toggle">队伍:</Label>
+              <div className="flex items-center space-x-2">
+                <span className={editedUnit.team === 'alpha' ? 'font-bold' : ''}>A队</span>
+                <Switch 
+                  id="edit-team-toggle" 
+                  checked={editedUnit.team === 'beta'} 
+                  onCheckedChange={(checked) => handleUpdateField('team', checked ? 'beta' : 'alpha')}
+                />
+                <span className={editedUnit.team === 'beta' ? 'font-bold' : ''}>B队</span>
+              </div>
+            </div>
+            
+            <div className="flex justify-between pt-4">
+              <Button variant="destructive" onClick={handleDelete}>
+                <Trash className="h-4 w-4 mr-2" />
+                删除单位
+              </Button>
+              <Button onClick={handleSave}>
+                <Save className="h-4 w-4 mr-2" />
+                保存修改
+              </Button>
+            </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

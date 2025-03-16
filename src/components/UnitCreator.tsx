@@ -1,299 +1,360 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useGameContext } from '@/context/GameContext';
 import { useToast } from '@/hooks/use-toast';
-import { Unit, UnitType, RaceType, ProfessionType } from '@/types/battle';
-import { useGame } from '@/context/GameContext';
+import UnitEditor from './UnitEditor';
+import { Unit } from '@/types/battle';
 
-const generateUnitId = () => `unit-${Math.random().toString(36).substr(2, 9)}`;
-
-const UnitCreator = () => {
-  const { addUnit } = useGame();
+const UnitCreator: React.FC = () => {
+  const { addUnit, units, factions } = useGameContext();
   const { toast } = useToast();
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   
-  const [name, setName] = useState('');
-  const [type, setType] = useState<UnitType>('战士');
-  const [race, setRace] = useState<RaceType>('人类');
-  const [profession, setProfession] = useState<ProfessionType>('坦克');
-  const [level, setLevel] = useState(1);
-  const [team, setTeam] = useState<'alpha' | 'beta'>('alpha');
+  const [unitName, setUnitName] = useState('');
+  const [unitType, setUnitType] = useState('战士');
+  const [unitRace, setUnitRace] = useState('人类');
+  const [unitProfession, setUnitProfession] = useState('战士');
+  const [unitFaction, setUnitFaction] = useState('');
+  const [unitLevel, setUnitLevel] = useState(1);
+  const [unitAttack, setUnitAttack] = useState(10);
+  const [unitDefense, setUnitDefense] = useState(5);
+  const [unitMagicPower, setUnitMagicPower] = useState(0);
+  const [unitMagicResistance, setUnitMagicResistance] = useState(5);
+  const [unitSpeed, setUnitSpeed] = useState(5);
+  const [unitMaxHP, setUnitMaxHP] = useState(100);
+  const [unitCritRate, setUnitCritRate] = useState(0.05);
+  const [unitCritDamage, setUnitCritDamage] = useState(1.5);
+  const [unitTeam, setUnitTeam] = useState<'alpha' | 'beta'>('alpha');
   
-  const [health, setHealth] = useState(100);
-  const [mana, setMana] = useState(50);
-  const [attack, setAttack] = useState(25);
-  const [defense, setDefense] = useState(15);
-  const [magicPower, setMagicPower] = useState(20);
-  const [magicResistance, setMagicResistance] = useState(10);
-  const [speed, setSpeed] = useState(10);
-
-  const unitTypes: UnitType[] = ['战士', '法师', '射手', '骑士', '牧师', '刺客', '商人'];
-  const raceTypes: RaceType[] = ['人类', '精灵', '龙族', '亡灵', '机械', '元素'];
-  const professionTypes: ProfessionType[] = ['坦克', '输出', '辅助', '控制', '刺客'];
-
-  const createUnit = () => {
-    if (!name) {
+  const handleAddUnit = () => {
+    if (!unitName.trim()) {
       toast({
-        title: "错误",
-        description: "请输入单位名称",
-        variant: "destructive",
+        title: "创建失败",
+        description: "单位名称不能为空",
+        variant: "destructive"
       });
       return;
     }
-
-    const newUnit: Unit = {
-      id: generateUnitId(),
-      name,
-      type,
-      race,
-      profession,
-      level,
-      team,
-      maxHP: health,
-      currentHP: health,
-      maxMana: mana,
-      currentMana: mana,
-      attack,
-      defense,
-      magicPower,
-      magicResistance,
-      speed,
-      critRate: 0.05,
-      critDamage: 1.5,
-      position: { x: 0, y: 0 },
-      status: "idle",
-      skills: [],
-      items: [],
+    
+    const newUnit = {
+      name: unitName,
+      type: unitType,
+      race: unitRace,
+      profession: unitProfession,
+      faction: unitFaction || undefined,
+      level: unitLevel,
+      attack: unitAttack,
+      defense: unitDefense,
+      magicPower: unitMagicPower,
+      magicResistance: unitMagicResistance,
+      speed: unitSpeed,
+      maxHP: unitMaxHP,
+      currentHP: unitMaxHP,
+      critRate: unitCritRate,
+      critDamage: unitCritDamage,
+      team: unitTeam
     };
     
     addUnit(newUnit);
     
     toast({
-      title: "创建成功",
-      description: `单位 ${name} 已创建并添加到${team === 'alpha' ? 'A队' : 'B队'}`,
+      title: "单位创建成功",
+      description: `${unitName} 已添加到 ${unitTeam === 'alpha' ? 'A' : 'B'} 队`,
     });
-    
-    // 自动切换到下一个队伍，确保两队均衡
-    setTeam(team === 'alpha' ? 'beta' : 'alpha');
-    setName('');
   };
-
+  
+  const handleEditUnit = (unit: Unit) => {
+    setEditingUnit(unit);
+    setShowEditor(true);
+  };
+  
+  const handleCloseEditor = () => {
+    setEditingUnit(null);
+    setShowEditor(false);
+  };
+  
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>创建单位</CardTitle>
-        <CardDescription>设置单位属性以添加到模拟战斗中</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">单位名称</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="输入单位名称" />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="level">单位等级</Label>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>创建单位</CardTitle>
+          <CardDescription>设计一个新的战斗单位</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="unit-name">单位名称</Label>
+              <Input 
+                id="unit-name" 
+                value={unitName} 
+                onChange={(e) => setUnitName(e.target.value)} 
+                placeholder="输入单位名称" 
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="unit-type">单位类型</Label>
+                <Select value={unitType} onValueChange={setUnitType}>
+                  <SelectTrigger id="unit-type">
+                    <SelectValue placeholder="选择单位类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="战士">战士</SelectItem>
+                    <SelectItem value="法师">法师</SelectItem>
+                    <SelectItem value="射手">射手</SelectItem>
+                    <SelectItem value="骑士">骑士</SelectItem>
+                    <SelectItem value="牧师">牧师</SelectItem>
+                    <SelectItem value="刺客">刺客</SelectItem>
+                    <SelectItem value="商人">商人</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="unit-race">种族</Label>
+                <Select value={unitRace} onValueChange={setUnitRace}>
+                  <SelectTrigger id="unit-race">
+                    <SelectValue placeholder="选择种族" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="人类">人类</SelectItem>
+                    <SelectItem value="精灵">精灵</SelectItem>
+                    <SelectItem value="兽人">兽人</SelectItem>
+                    <SelectItem value="矮人">矮人</SelectItem>
+                    <SelectItem value="亡灵">亡灵</SelectItem>
+                    <SelectItem value="龙族">龙族</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="unit-profession">职业</Label>
+                <Select value={unitProfession} onValueChange={setUnitProfession}>
+                  <SelectTrigger id="unit-profession">
+                    <SelectValue placeholder="选择职业" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="战士">战士</SelectItem>
+                    <SelectItem value="法师">法师</SelectItem>
+                    <SelectItem value="猎人">猎人</SelectItem>
+                    <SelectItem value="骑士">骑士</SelectItem>
+                    <SelectItem value="牧师">牧师</SelectItem>
+                    <SelectItem value="刺客">刺客</SelectItem>
+                    <SelectItem value="商人">商人</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="unit-faction">派系</Label>
+                <Select value={unitFaction} onValueChange={setUnitFaction}>
+                  <SelectTrigger id="unit-faction">
+                    <SelectValue placeholder="选择派系" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">无派系</SelectItem>
+                    {factions.map(faction => (
+                      <SelectItem key={faction.id} value={faction.name}>
+                        {faction.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="unit-level">等级: {unitLevel}</Label>
+              <Slider 
+                id="unit-level" 
+                min={1} 
+                max={10} 
+                step={1} 
+                value={[unitLevel]} 
+                onValueChange={(value) => setUnitLevel(value[0])} 
+              />
+            </div>
+            
+            <Tabs defaultValue="combat">
+              <TabsList className="w-full">
+                <TabsTrigger value="combat" className="flex-1">战斗属性</TabsTrigger>
+                <TabsTrigger value="other" className="flex-1">其他属性</TabsTrigger>
+              </TabsList>
+              <TabsContent value="combat" className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="unit-attack">攻击力: {unitAttack}</Label>
+                  <Slider 
+                    id="unit-attack" 
+                    min={1} 
+                    max={50} 
+                    step={1} 
+                    value={[unitAttack]} 
+                    onValueChange={(value) => setUnitAttack(value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="unit-defense">防御力: {unitDefense}</Label>
+                  <Slider 
+                    id="unit-defense" 
+                    min={0} 
+                    max={30} 
+                    step={1} 
+                    value={[unitDefense]} 
+                    onValueChange={(value) => setUnitDefense(value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="unit-magic-power">魔法攻击: {unitMagicPower}</Label>
+                  <Slider 
+                    id="unit-magic-power" 
+                    min={0} 
+                    max={50} 
+                    step={1} 
+                    value={[unitMagicPower]} 
+                    onValueChange={(value) => setUnitMagicPower(value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="unit-magic-resistance">魔法抗性: {unitMagicResistance}</Label>
+                  <Slider 
+                    id="unit-magic-resistance" 
+                    min={0} 
+                    max={30} 
+                    step={1} 
+                    value={[unitMagicResistance]} 
+                    onValueChange={(value) => setUnitMagicResistance(value[0])} 
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="other" className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="unit-hp">生命值: {unitMaxHP}</Label>
+                  <Slider 
+                    id="unit-hp" 
+                    min={50} 
+                    max={500} 
+                    step={10} 
+                    value={[unitMaxHP]} 
+                    onValueChange={(value) => setUnitMaxHP(value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="unit-speed">速度: {unitSpeed}</Label>
+                  <Slider 
+                    id="unit-speed" 
+                    min={1} 
+                    max={20} 
+                    step={1} 
+                    value={[unitSpeed]} 
+                    onValueChange={(value) => setUnitSpeed(value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="unit-crit-rate">暴击率: {(unitCritRate * 100).toFixed(0)}%</Label>
+                  <Slider 
+                    id="unit-crit-rate" 
+                    min={0} 
+                    max={0.5} 
+                    step={0.01} 
+                    value={[unitCritRate]} 
+                    onValueChange={(value) => setUnitCritRate(value[0])} 
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="unit-crit-damage">暴击伤害: {unitCritDamage.toFixed(1)}x</Label>
+                  <Slider 
+                    id="unit-crit-damage" 
+                    min={1.1} 
+                    max={3} 
+                    step={0.1} 
+                    value={[unitCritDamage]} 
+                    onValueChange={(value) => setUnitCritDamage(value[0])} 
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+            
             <div className="flex items-center space-x-2">
-              <Slider
-                id="level"
-                value={[level]}
-                min={1}
-                max={5}
-                step={1}
-                onValueChange={(value) => setLevel(value[0])}
-              />
-              <span className="w-12 text-center">{level}</span>
+              <Label htmlFor="team-toggle">队伍:</Label>
+              <div className="flex items-center space-x-2">
+                <span className={unitTeam === 'alpha' ? 'font-bold' : ''}>A队</span>
+                <Switch 
+                  id="team-toggle" 
+                  checked={unitTeam === 'beta'} 
+                  onCheckedChange={(checked) => setUnitTeam(checked ? 'beta' : 'alpha')}
+                />
+                <span className={unitTeam === 'beta' ? 'font-bold' : ''}>B队</span>
+              </div>
             </div>
+            
+            <Button className="w-full" onClick={handleAddUnit}>创建单位</Button>
           </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="type">单位类型</Label>
-            <Select value={type} onValueChange={(value: UnitType) => setType(value)}>
-              <SelectTrigger id="type">
-                <SelectValue placeholder="选择类型" />
-              </SelectTrigger>
-              <SelectContent>
-                {unitTypes.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>单位列表</CardTitle>
+          <CardDescription>管理已创建的单位</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {units.length === 0 ? (
+              <div className="text-center p-4 bg-muted rounded-md text-muted-foreground">
+                还没有创建任何单位
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {units.map((unit) => (
+                  <div 
+                    key={unit.id} 
+                    className="border rounded-md p-3 flex justify-between items-center hover:bg-muted/50 cursor-pointer"
+                    onClick={() => handleEditUnit(unit)}
+                  >
+                    <div>
+                      <div className="font-medium">{unit.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {unit.race} {unit.profession} · Lv.{unit.level} · {unit.team === 'alpha' ? 'A队' : 'B队'}
+                        {unit.faction && ` · ${unit.faction}`}
+                      </div>
+                    </div>
+                    <div className="text-sm">
+                      HP: {unit.maxHP} | ATK: {unit.attack} | DEF: {unit.defense}
+                    </div>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="race">种族</Label>
-            <Select value={race} onValueChange={(value: RaceType) => setRace(value)}>
-              <SelectTrigger id="race">
-                <SelectValue placeholder="选择种族" />
-              </SelectTrigger>
-              <SelectContent>
-                {raceTypes.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="profession">职业</Label>
-            <Select value={profession} onValueChange={(value: ProfessionType) => setProfession(value)}>
-              <SelectTrigger id="profession">
-                <SelectValue placeholder="选择职业" />
-              </SelectTrigger>
-              <SelectContent>
-                {professionTypes.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>所属队伍</Label>
-          <RadioGroup
-            value={team}
-            onValueChange={(value: 'alpha' | 'beta') => setTeam(value)}
-            className="flex space-x-4"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="alpha" id="team-alpha" />
-              <Label htmlFor="team-alpha">A队</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="beta" id="team-beta" />
-              <Label htmlFor="team-beta">B队</Label>
-            </div>
-          </RadioGroup>
-        </div>
-
-        <div className="space-y-4">
-          <Label>属性设置</Label>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-6">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="health">生命值</Label>
-                <span className="text-sm">{health}</span>
-              </div>
-              <Slider
-                id="health"
-                value={[health]}
-                min={50}
-                max={500}
-                step={10}
-                onValueChange={(value) => setHealth(value[0])}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="mana">法力值</Label>
-                <span className="text-sm">{mana}</span>
-              </div>
-              <Slider
-                id="mana"
-                value={[mana]}
-                min={0}
-                max={200}
-                step={5}
-                onValueChange={(value) => setMana(value[0])}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="attack">攻击力</Label>
-                <span className="text-sm">{attack}</span>
-              </div>
-              <Slider
-                id="attack"
-                value={[attack]}
-                min={5}
-                max={100}
-                step={5}
-                onValueChange={(value) => setAttack(value[0])}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="defense">防御力</Label>
-                <span className="text-sm">{defense}</span>
-              </div>
-              <Slider
-                id="defense"
-                value={[defense]}
-                min={0}
-                max={80}
-                step={5}
-                onValueChange={(value) => setDefense(value[0])}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="magicPower">法术强度</Label>
-                <span className="text-sm">{magicPower}</span>
-              </div>
-              <Slider
-                id="magicPower"
-                value={[magicPower]}
-                min={0}
-                max={100}
-                step={5}
-                onValueChange={(value) => setMagicPower(value[0])}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="magicResistance">魔法抗性</Label>
-                <span className="text-sm">{magicResistance}</span>
-              </div>
-              <Slider
-                id="magicResistance"
-                value={[magicResistance]}
-                min={0}
-                max={80}
-                step={5}
-                onValueChange={(value) => setMagicResistance(value[0])}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="speed">速度</Label>
-                <span className="text-sm">{speed}</span>
-              </div>
-              <Slider
-                id="speed"
-                value={[speed]}
-                min={1}
-                max={30}
-                step={1}
-                onValueChange={(value) => setSpeed(value[0])}
-              />
-            </div>
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Button onClick={createUnit} className="w-full">创建单位</Button>
-      </CardFooter>
-    </Card>
+        </CardContent>
+      </Card>
+      
+      {showEditor && editingUnit && (
+        <UnitEditor 
+          unit={editingUnit} 
+          onClose={handleCloseEditor} 
+        />
+      )}
+    </div>
   );
 };
 

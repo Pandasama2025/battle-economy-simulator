@@ -17,6 +17,18 @@ export interface Bond {
   }[];
 }
 
+export interface Faction {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  bonuses: {
+    type: 'buff' | 'debuff';
+    value: number;
+    target: 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate';
+  }[];
+}
+
 // 修改平衡参数接口，添加索引签名
 export interface BalanceParameters {
   physicalDefense: number;
@@ -45,6 +57,10 @@ interface GameContextProps {
   addBond: (bond: Omit<Bond, 'id'>) => void;
   updateBond: (id: string, bond: Bond) => void;
   deleteBond: (id: string) => void;
+  factions: Faction[];
+  addFaction: (faction: Omit<Faction, 'id'>) => void;
+  updateFaction: (id: string, faction: Faction) => void;
+  deleteFaction: (id: string) => void;
   units: Unit[];
   updateUnit: (id: string, unit: Unit) => void;
   deleteUnit: (id: string) => void;
@@ -55,6 +71,8 @@ interface GameContextProps {
   battleLog: Array<{message: string}>;
   balanceParameters: BalanceParameters;
   setBalanceParameters: React.Dispatch<React.SetStateAction<BalanceParameters>>;
+  saveUnits: () => void;
+  loadUnits: () => void;
 }
 
 const GameContext = createContext<GameContextProps | undefined>(undefined);
@@ -91,6 +109,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const performanceMonitor = useRef(new PerformanceMonitor()).current;
   const { toast } = useToast();
   const [bonds, setBonds] = useState<Bond[]>([]);
+  const [factions, setFactions] = useState<Faction[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   
   // 使用游戏配置中的平衡参数
@@ -102,6 +121,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     setBalanceParameters(config.balanceParameters);
   }, [config.balanceParameters]);
+
+  // Load units from localStorage on initialization
+  useEffect(() => {
+    loadUnits();
+  }, []);
 
   const initBattleState = useCallback(() => {
     const initialState: BattleState = {
@@ -204,6 +228,64 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBonds(prev => prev.filter(bond => bond.id !== id));
   }, []);
 
+  // Faction management functions
+  const addFaction = useCallback((faction: Omit<Faction, 'id'>) => {
+    const newFaction: Faction = {
+      ...faction,
+      id: `faction-${Math.random().toString(36).substring(2, 9)}`
+    };
+    setFactions(prev => [...prev, newFaction]);
+  }, []);
+
+  const updateFaction = useCallback((id: string, updatedFaction: Faction) => {
+    setFactions(prev => prev.map(faction => faction.id === id ? updatedFaction : faction));
+  }, []);
+
+  const deleteFaction = useCallback((id: string) => {
+    setFactions(prev => prev.filter(faction => faction.id !== id));
+  }, []);
+
+  // Save units to localStorage
+  const saveUnits = useCallback(() => {
+    try {
+      const unitsToSave = JSON.stringify(units);
+      localStorage.setItem('savedUnits', unitsToSave);
+      toast({
+        title: "已保存单位",
+        description: `成功保存了 ${units.length} 个单位`,
+      });
+    } catch (error) {
+      console.error("Error saving units:", error);
+      toast({
+        title: "保存单位失败",
+        description: "无法保存单位数据",
+        variant: "destructive",
+      });
+    }
+  }, [units, toast]);
+
+  // Load units from localStorage
+  const loadUnits = useCallback(() => {
+    try {
+      const savedUnits = localStorage.getItem('savedUnits');
+      if (savedUnits) {
+        const parsedUnits = JSON.parse(savedUnits) as Unit[];
+        setUnits(parsedUnits);
+        toast({
+          title: "已加载单位",
+          description: `成功加载了 ${parsedUnits.length} 个单位`,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading units:", error);
+      toast({
+        title: "加载单位失败",
+        description: "无法加载保存的单位数据",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (!battleState) {
       initBattleState();
@@ -273,11 +355,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     setIsSimulating(false);
-    initBattleState();
+    
+    // Don't remove units, just reset their health and other battle-specific properties
+    setBattleState(prev => {
+      if (!prev) return prev;
+      
+      // Reset teams with full health units
+      const resetAlphaTeam = prev.teams.alpha.map(unit => ({
+        ...unit,
+        currentHP: unit.maxHP,
+        currentMana: unit.maxMana || 100,
+      }));
+      
+      const resetBetaTeam = prev.teams.beta.map(unit => ({
+        ...unit,
+        currentHP: unit.maxHP,
+        currentMana: unit.maxMana || 100,
+      }));
+      
+      return {
+        ...prev,
+        round: 1,
+        status: 'preparing',
+        teams: {
+          alpha: resetAlphaTeam,
+          beta: resetBetaTeam
+        },
+        log: []
+      };
+    });
     
     toast({
       title: "战斗已重置",
-      description: "所有单位和状态已清空",
+      description: "所有单位已恢复满血并重置状态",
     });
   }, []);
 
@@ -546,6 +656,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addBond,
       updateBond,
       deleteBond,
+      factions,
+      addFaction,
+      updateFaction,
+      deleteFaction,
       units,
       updateUnit,
       deleteUnit,
@@ -555,7 +669,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       advanceBattleRound,
       battleLog,
       balanceParameters,
-      setBalanceParameters
+      setBalanceParameters,
+      saveUnits,
+      loadUnits
     }}>
       {children}
     </GameContext.Provider>
