@@ -1,8 +1,20 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { BattleState, Unit } from '@/types/battle';
+import { BattleState, Unit, UnitType, RaceType, ProfessionType } from '@/types/battle';
 import { useToast } from '@/hooks/use-toast';
 import { PerformanceMonitor } from '@/lib/utils/PerformanceMonitor';
+
+export interface Bond {
+  id: string;
+  name: string;
+  description: string;
+  requiredTypes: string[];
+  minUnits: number;
+  effects: {
+    type: 'buff' | 'debuff';
+    value: number;
+    target: 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate';
+  }[];
+}
 
 interface GameContextProps {
   battleState: BattleState | null;
@@ -17,6 +29,13 @@ interface GameContextProps {
   simulationSpeed: number;
   setSimulationSpeed: (speed: number) => void;
   performance: PerformanceMonitor;
+  bonds: Bond[];
+  addBond: (bond: Omit<Bond, 'id'>) => void;
+  updateBond: (id: string, bond: Bond) => void;
+  deleteBond: (id: string) => void;
+  units: Unit[];
+  updateUnit: (id: string, unit: Unit) => void;
+  deleteUnit: (id: string) => void;
 }
 
 const GameContext = createContext<GameContextProps | undefined>(undefined);
@@ -29,6 +48,8 @@ export const useGame = () => {
   return context;
 };
 
+export const useGameContext = useGame;
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [battleState, setBattleState] = useState<BattleState | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -36,21 +57,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const simulationRef = useRef<NodeJS.Timeout | null>(null);
   const performanceMonitor = useRef(new PerformanceMonitor()).current;
   const { toast } = useToast();
+  const [bonds, setBonds] = useState<Bond[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
 
-  // 初始化战斗状态
-  useEffect(() => {
-    if (!battleState) {
-      initBattleState();
-    }
-    
-    return () => {
-      if (simulationRef.current) {
-        clearTimeout(simulationRef.current);
-      }
-    };
-  }, []);
-
-  // 初始化战斗状态
   const initBattleState = useCallback(() => {
     const initialState: BattleState = {
       id: `battle-${Math.random().toString(36).substring(2, 9)}`,
@@ -75,12 +84,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBattleState(initialState);
   }, []);
 
-  // 添加单位
   const addUnit = useCallback((unit: Unit) => {
+    setUnits(prev => [...prev, unit]);
     setBattleState(prev => {
       if (!prev) return prev;
       
-      // 添加到相应队伍
       const team = unit.team;
       return {
         ...prev,
@@ -92,12 +100,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  // 移除单位
   const removeUnit = useCallback((unitId: string) => {
+    setUnits(prev => prev.filter(u => u.id !== unitId));
     setBattleState(prev => {
       if (!prev) return prev;
       
-      // 从两个队伍中查找并移除
       const alphaFiltered = prev.teams.alpha.filter(u => u.id !== unitId);
       const betaFiltered = prev.teams.beta.filter(u => u.id !== unitId);
       
@@ -111,11 +118,59 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  // 开始战斗模拟
+  const updateUnit = useCallback((id: string, updatedUnit: Unit) => {
+    setUnits(prev => prev.map(unit => unit.id === id ? updatedUnit : unit));
+    setBattleState(prev => {
+      if (!prev) return prev;
+      
+      const alphaUpdated = prev.teams.alpha.map(unit => unit.id === id ? updatedUnit : unit);
+      const betaUpdated = prev.teams.beta.map(unit => unit.id === id ? updatedUnit : unit);
+      
+      return {
+        ...prev,
+        teams: {
+          alpha: alphaUpdated,
+          beta: betaUpdated
+        }
+      };
+    });
+  }, []);
+
+  const deleteUnit = useCallback((id: string) => {
+    removeUnit(id);
+  }, [removeUnit]);
+
+  const addBond = useCallback((bond: Omit<Bond, 'id'>) => {
+    const newBond: Bond = {
+      ...bond,
+      id: `bond-${Math.random().toString(36).substring(2, 9)}`
+    };
+    setBonds(prev => [...prev, newBond]);
+  }, []);
+
+  const updateBond = useCallback((id: string, updatedBond: Bond) => {
+    setBonds(prev => prev.map(bond => bond.id === id ? updatedBond : bond));
+  }, []);
+
+  const deleteBond = useCallback((id: string) => {
+    setBonds(prev => prev.filter(bond => bond.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (!battleState) {
+      initBattleState();
+    }
+    
+    return () => {
+      if (simulationRef.current) {
+        clearTimeout(simulationRef.current);
+      }
+    };
+  }, []);
+
   const startBattle = useCallback(() => {
     if (!battleState || isSimulating) return;
     
-    // 检查两个队伍是否都有单位
     if (battleState.teams.alpha.length === 0 || battleState.teams.beta.length === 0) {
       toast({
         title: "无法开始战斗",
@@ -125,7 +180,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // 更新战斗状态为进行中
     setBattleState(prev => {
       if (!prev) return prev;
       return {
@@ -146,11 +200,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setIsSimulating(true);
     
-    // 启动模拟循环
     simulateBattle();
   }, [battleState, isSimulating]);
 
-  // 暂停战斗模拟
   const pauseBattle = useCallback(() => {
     if (simulationRef.current) {
       clearTimeout(simulationRef.current);
@@ -159,7 +211,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsSimulating(false);
   }, []);
 
-  // 继续战斗模拟
   const resumeBattle = useCallback(() => {
     if (!isSimulating && battleState?.status === 'inProgress') {
       setIsSimulating(true);
@@ -167,7 +218,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isSimulating, battleState]);
 
-  // 重置战斗
   const resetBattle = useCallback(() => {
     if (simulationRef.current) {
       clearTimeout(simulationRef.current);
@@ -183,25 +233,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  // 模拟战斗逻辑
   const simulateBattle = useCallback(() => {
     if (!battleState) return;
     
-    // 记录性能
     const startLogicTime = performance.now();
     
     setBattleState(prev => {
       if (!prev) return prev;
       
-      // 检查是否已经结束
       if (prev.status === 'completed') {
         setIsSimulating(false);
         return prev;
       }
       
-      // 检查是否超过最大回合数
       if (prev.round >= prev.maxRounds) {
-        // 确定胜者（基于剩余生命值）
         const alphaHpSum = prev.teams.alpha.reduce((sum, unit) => sum + unit.currentHP, 0);
         const betaHpSum = prev.teams.beta.reduce((sum, unit) => sum + unit.currentHP, 0);
         
@@ -233,11 +278,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
       
-      // 简单的战斗逻辑模拟 - 双方随机攻击
       const alphaTeam = [...prev.teams.alpha];
       const betaTeam = [...prev.teams.beta];
       
-      // 检查双方是否都有存活单位
       const alphaAlive = alphaTeam.filter(unit => unit.currentHP > 0);
       const betaAlive = betaTeam.filter(unit => unit.currentHP > 0);
       
@@ -267,32 +310,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
       
-      // 按照速度排序所有单位
       const allUnits = [...alphaAlive, ...betaAlive].sort((a, b) => b.speed - a.speed);
       
-      // 战斗回合日志
-      const newLogs = []; 
+      const newLogs = [];
       
-      // 每个单位按照速度顺序行动
       allUnits.forEach(unit => {
-        if (unit.currentHP <= 0) return; // 跳过已经死亡的单位
+        if (unit.currentHP <= 0) return;
         
-        // 确定攻击目标 - 敌方随机一个存活单位
         const targetTeam = unit.team === 'alpha' ? betaAlive : alphaAlive;
         if (targetTeam.length === 0) return;
         
         const targetIndex = Math.floor(Math.random() * targetTeam.length);
         const target = targetTeam[targetIndex];
         
-        // 计算伤害
         const baseDamage = unit.attack * (1 - target.defense * 0.035);
         const isCrit = Math.random() < unit.critRate;
         const damage = Math.max(1, Math.round(isCrit ? baseDamage * unit.critDamage : baseDamage));
         
-        // 应用伤害
         target.currentHP = Math.max(0, target.currentHP - damage);
         
-        // 添加战斗日志
         newLogs.push({
           round: prev.round,
           timestamp: Date.now(),
@@ -305,7 +341,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }`
         });
         
-        // 如果目标死亡，从存活列表中移除
         if (target.currentHP <= 0) {
           if (target.team === 'alpha') {
             const index = alphaAlive.findIndex(u => u.id === target.id);
@@ -317,7 +352,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
       
-      // 更新所有单位状态
       return {
         ...prev,
         teams: {
@@ -329,12 +363,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     });
     
-    // 记录性能
     const endLogicTime = performance.now();
     performanceMonitor.recordLogicTime(endLogicTime - startLogicTime);
     performanceMonitor.frameRendered();
     
-    // 根据模拟速度设置下一帧的延迟
     const delay = Math.max(50, 500 / simulationSpeed);
     simulationRef.current = setTimeout(() => {
       simulateBattle();
@@ -354,7 +386,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isSimulating,
       simulationSpeed,
       setSimulationSpeed,
-      performance: performanceMonitor
+      performance: performanceMonitor,
+      bonds,
+      addBond,
+      updateBond,
+      deleteBond,
+      units,
+      updateUnit,
+      deleteUnit
     }}>
       {children}
     </GameContext.Provider>

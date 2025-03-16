@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +12,7 @@ import { Bond } from '@/context/GameContext';
 import { UnitType } from '@/types/battle';
 
 const UNIT_TYPES: UnitType[] = [
-  'Warrior', 'Mage', 'Archer', 'Knight', 'Priest', 'Assassin', 'Merchant'
+  '战士', '法师', '射手', '骑士', '牧师', '刺客', '商人'
 ];
 
 const STAT_TARGETS = [

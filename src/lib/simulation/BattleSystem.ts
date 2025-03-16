@@ -18,7 +18,10 @@ export class BattleSystem {
         effects: {}
       },
       log: [],
-      environmentEffects: true
+      environmentEffects: true,
+      turnPhase: 'preparation',
+      phaseTime: 30,
+      matchups: []
     };
   }
 
@@ -109,8 +112,8 @@ export class BattleSystem {
   }
 
   selectTarget(attacker: Unit, targets: Unit[]): Unit {
-    if (attacker.type === 'Assassin') {
-      const mageTargets = targets.filter(t => t.type === 'Mage');
+    if (["Assassin", "刺客"].includes(attacker.type)) {
+      const mageTargets = targets.filter(t => ["Mage", "法师"].includes(t.type));
       if (mageTargets.length > 0) {
         return mageTargets.reduce((lowest, current) => 
           current.currentHP < lowest.currentHP ? current : lowest
@@ -118,7 +121,7 @@ export class BattleSystem {
       }
     }
     
-    if (attacker.type === 'Priest' && Math.random() > 0.5) {
+    if (["Priest", "牧师"].includes(attacker.type) && Math.random() > 0.5) {
       const allies = this.getAllyTargets(attacker);
       const woundedAllies = allies.filter(a => a.currentHP < a.maxHP * 0.7);
       
@@ -136,7 +139,7 @@ export class BattleSystem {
   }
 
   determineAction(unit: Unit): ActionType {
-    if (unit.type === 'Priest') {
+    if (["Priest", "牧师"].includes(unit.type)) {
       const woundedAllies = this.getAllyTargets(unit).filter(a => a.currentHP < a.maxHP * 0.7);
       if (woundedAllies.length > 0 && unit.currentMana >= 30) {
         return 'heal';
@@ -154,7 +157,7 @@ export class BattleSystem {
       }
     }
     
-    if (unit.type === 'Merchant' && Math.random() < 0.3 && unit.currentMana >= 20) {
+    if (["Merchant", "商人"].includes(unit.type) && Math.random() < 0.3 && unit.currentMana >= 20) {
       return 'buff';
     }
     
@@ -294,11 +297,11 @@ export class BattleSystem {
     let buffAmount = 0;
     let buffType = '';
     
-    if (caster.type === 'Merchant') {
+    if (["Merchant", "商人"].includes(caster.type)) {
       buffAmount = Math.floor(target.attack * 0.2);
       target.attack += buffAmount;
       buffType = '攻击力';
-    } else if (caster.type === 'Priest') {
+    } else if (["Priest", "牧师"].includes(caster.type)) {
       buffAmount = Math.floor(target.defense * 0.2);
       target.defense += buffAmount;
       buffType = '防御力';
@@ -432,7 +435,7 @@ export class BattleSystem {
   applyTerrainEffects(unit: Unit): void {
     if (!this.state.environmentEffects) return;
     
-    if (this.state.terrain.type === 'fire' && unit.type === 'Mage') {
+    if (this.state.terrain.type === 'fire' && ["Mage", "法师"].includes(unit.type)) {
       const burnDamage = Math.floor(unit.maxHP * 0.05);
       unit.currentHP = Math.max(1, unit.currentHP - burnDamage);
       

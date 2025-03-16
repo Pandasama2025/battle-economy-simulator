@@ -11,7 +11,7 @@ import { useGameContext } from '@/context/GameContext';
 
 const DEFAULT_UNIT: Omit<Unit, 'id'> = {
   name: '',
-  type: 'Warrior',
+  type: '战士',
   level: 1,
   team: 'alpha',
   maxHP: 300,
@@ -32,7 +32,7 @@ const DEFAULT_UNIT: Omit<Unit, 'id'> = {
 };
 
 const UNIT_TYPES: UnitType[] = [
-  'Warrior', 'Mage', 'Archer', 'Knight', 'Priest', 'Assassin', 'Merchant'
+  '战士', '法师', '射手', '骑士', '牧师', '刺客', '商人'
 ];
 
 const UnitEditor: React.FC = () => {

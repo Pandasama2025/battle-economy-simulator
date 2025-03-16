@@ -1,7 +1,8 @@
 
 // 战斗系统类型定义
 
-export type UnitType = "战士" | "法师" | "射手" | "骑士" | "牧师" | "刺客" | "商人";
+export type UnitType = "战士" | "法师" | "射手" | "骑士" | "牧师" | "刺客" | "商人" | 
+                     "Warrior" | "Mage" | "Archer" | "Knight" | "Priest" | "Assassin" | "Merchant";
 
 export type RaceType = "人类" | "精灵" | "龙族" | "亡灵" | "机械" | "元素";
 
