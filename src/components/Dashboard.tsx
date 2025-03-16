@@ -182,7 +182,7 @@ const Dashboard = () => {
                       </div>
                       <div className="bg-muted/30 p-2 rounded-md">
                         <div className="text-sm">行动顺序</div>
-                        <div className="text-xs text-muted-foreground">先攻 > 普通 > 迟缓</div>
+                        <div className="text-xs text-muted-foreground">先攻 {'>'} 普通 {'>'} 迟缓</div>
                         <div className="text-xs text-muted-foreground">基于速度属性</div>
                       </div>
                       <div className="bg-muted/30 p-2 rounded-md">
