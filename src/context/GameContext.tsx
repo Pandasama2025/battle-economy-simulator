@@ -367,14 +367,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...unit,
         currentHP: unit.maxHP,
         currentMana: unit.maxMana || 100,
-        status: 'idle'
+        status: 'idle' as 'idle' | 'attacking' | 'defending' | 'casting' | 'moving' | 'stunned' | 'dead'
       }));
       
       const resetBetaTeam = prev.teams.beta.map(unit => ({
         ...unit,
         currentHP: unit.maxHP,
         currentMana: unit.maxMana || 100,
-        status: 'idle'
+        status: 'idle' as 'idle' | 'attacking' | 'defending' | 'casting' | 'moving' | 'stunned' | 'dead'
       }));
       
       return {

@@ -494,7 +494,7 @@ export class BattleSystem {
     message: string,
     skillId?: string
   ): void {
-    const logEntry: BattleLogEntry & { skillId?: string } = {
+    const logEntry: BattleLogEntry = {
       round: this.state.round,
       timestamp: Date.now(),
       actorId: actor.id,
@@ -505,7 +505,7 @@ export class BattleSystem {
       skillId
     };
     
-    this.state.log.unshift(logEntry as BattleLogEntry);
+    this.state.log.unshift(logEntry);
   }
 
   checkBattleEnd(): boolean {
@@ -525,4 +525,3 @@ export class BattleSystem {
     return JSON.parse(JSON.stringify(this.state));
   }
 }
-
