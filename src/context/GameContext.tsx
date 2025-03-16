@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { BattleState, Unit, UnitType, RaceType, ProfessionType, TerrainType } from '@/types/battle';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +18,7 @@ export interface Bond {
   }[];
 }
 
-// 添加平衡参数接口，并添加索引签名
+// 修改平衡参数接口，添加索引签名
 export interface BalanceParameters {
   physicalDefense: number;
   magicResistance: number;
