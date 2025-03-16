@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash, Save, X, Edit, Link, Unlink } from 'lucide-react';
+import { Plus, Trash, Save, X, Edit } from 'lucide-react';
 import { useGameContext, Bond } from '@/context/GameContext';
 import { UnitType } from '@/types/battle';
+import { useToast } from '@/hooks/use-toast';
 
 const UNIT_TYPES = [
   '战士', '法师', '射手', '骑士', '牧师', '刺客', '商人'
@@ -48,18 +50,38 @@ const DEFAULT_BOND: Omit<Bond, 'id'> = {
 };
 
 const BondEditor: React.FC = () => {
-  const { bonds, addBond, updateBond, deleteBond, units } = useGameContext();
+  const { bonds, addBond, updateBond, deleteBond, units, battleState } = useGameContext();
   const [editingBond, setEditingBond] = useState<Bond | null>(null);
   const [newBond, setNewBond] = useState<Omit<Bond, 'id'>>(DEFAULT_BOND);
   const [activeTab, setActiveTab] = useState('bonds');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // 当打开组件时，如果还没有羁绊，显示一个提示
+    if (bonds.length === 0 && activeTab === 'bonds') {
+      toast({
+        title: "羁绊系统",
+        description: "您还未创建任何羁绊，请切换到"添加羁绊"选项卡创建",
+      });
+    }
+  }, [activeTab, bonds.length, toast]);
 
   // 处理添加新羁绊
   const handleAddBond = () => {
     if (!newBond.name.trim() || newBond.requiredTypes.length === 0) {
-      return; // 防止创建无效羁绊
+      toast({
+        title: "创建失败",
+        description: "羁绊名称和至少一个单位类型是必须的",
+        variant: "destructive"
+      });
+      return;
     }
     
     addBond(newBond);
+    toast({
+      title: "羁绊创建成功",
+      description: `羁绊 "${newBond.name}" 已成功创建`
+    });
     setNewBond(DEFAULT_BOND); // 重置表单
   };
 
@@ -69,6 +91,10 @@ const BondEditor: React.FC = () => {
     if (editingBond && editingBond.id === id) {
       setEditingBond(null);
     }
+    toast({
+      title: "羁绊已删除",
+      description: "该羁绊已成功删除"
+    });
   };
 
   // 处理编辑羁绊
@@ -80,7 +106,20 @@ const BondEditor: React.FC = () => {
   const handleSaveBond = () => {
     if (!editingBond) return;
     
+    if (!editingBond.name.trim() || editingBond.requiredTypes.length === 0) {
+      toast({
+        title: "保存失败",
+        description: "羁绊名称和至少一个单位类型是必须的",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     updateBond(editingBond.id, editingBond);
+    toast({
+      title: "羁绊已更新",
+      description: `羁绊 "${editingBond.name}" 已成功更新`
+    });
     setEditingBond(null);
   };
 
@@ -244,8 +283,12 @@ const BondEditor: React.FC = () => {
 
   // 计算羁绊的当前激活状态
   const calculateBondStatus = (bond: Bond) => {
-    const teamAlpha = units.filter(unit => unit.team === 'alpha');
-    const teamBeta = units.filter(unit => unit.team === 'beta');
+    if (!battleState) {
+      return { alpha: false, beta: false };
+    }
+    
+    const teamAlpha = battleState.teams.alpha;
+    const teamBeta = battleState.teams.beta;
     
     const alphaMatches = teamAlpha.filter(unit => 
       bond.requiredTypes.includes(unit.type)
@@ -276,8 +319,11 @@ const BondEditor: React.FC = () => {
           
           <TabsContent value="bonds" className="space-y-4">
             {bonds.length === 0 ? (
-              <div className="text-center p-4 text-muted-foreground">
-                未添加任何羁绊，请切换到"添加羁绊"选项卡创建羁绊
+              <div className="text-center p-4 bg-muted rounded-md text-muted-foreground">
+                <p className="mb-2">未添加任何羁绊，请切换到"添加羁绊"选项卡创建羁绊</p>
+                <Button variant="outline" onClick={() => setActiveTab('add')}>
+                  创建新羁绊
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

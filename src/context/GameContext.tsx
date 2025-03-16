@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { BattleState, Unit, UnitType, RaceType, ProfessionType, TerrainType } from '@/types/battle';
 import { useToast } from '@/hooks/use-toast';
@@ -367,6 +366,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const newLogs = [];
       
+      // 应用羁绊效果
+      const appliedBonds = applyBondEffects(bonds, alphaAlive, betaAlive);
+      
+      // 为每个单位执行行动
       allUnits.forEach(unit => {
         if (unit.currentHP <= 0) return;
         
@@ -379,8 +382,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 使用配置系统的UI选项
         const showEffects = config.uiOptions.showBattleEffects;
         
-        const baseDamage = unit.attack * (1 - target.defense * balanceParameters.physicalDefense);
-        const isCrit = Math.random() < (unit.critRate * balanceParameters.criticalRate);
+        // 计算攻击者的修正攻击力
+        const attackModifier = getBondModifier(appliedBonds, unit, 'attack');
+        const modifiedAttack = unit.attack * (1 + attackModifier);
+        
+        // 计算防御者的修正防御力
+        const defenseModifier = getBondModifier(appliedBonds, target, 'defense');
+        const modifiedDefense = target.defense * (1 + defenseModifier);
+        
+        // 应用伤害计算公式，注意每个单位的防御系数可能不同
+        const baseDamage = modifiedAttack * (1 - modifiedDefense * balanceParameters.physicalDefense);
+        
+        // 计算暴击率和暴击伤害
+        const critModifier = getBondModifier(appliedBonds, unit, 'critRate');
+        const modifiedCritRate = unit.critRate * (1 + critModifier) * balanceParameters.criticalRate;
+        const isCrit = Math.random() < modifiedCritRate;
         const damage = Math.max(1, Math.round(isCrit ? baseDamage * unit.critDamage : baseDamage));
         
         target.currentHP = Math.max(0, target.currentHP - damage);
@@ -430,7 +446,61 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     simulationRef.current = setTimeout(() => {
       simulateBattle();
     }, delay);
-  }, [battleState, simulationSpeed, balanceParameters, config.uiOptions]);
+  }, [battleState, simulationSpeed, balanceParameters, config.uiOptions, bonds]);
+
+  // 应用羁绊效果的辅助函数
+  const applyBondEffects = (bondsList: Bond[], alphaUnits: Unit[], betaUnits: Unit[]) => {
+    const result = {
+      alpha: [] as Bond[],
+      beta: [] as Bond[]
+    };
+    
+    bondsList.forEach(bond => {
+      // 检查A队是否满足羁绊要求
+      const alphaMatches = alphaUnits.filter(unit => 
+        bond.requiredTypes.includes(unit.type)
+      ).length;
+      
+      // 检查B队是否满足羁绊要求
+      const betaMatches = betaUnits.filter(unit => 
+        bond.requiredTypes.includes(unit.type)
+      ).length;
+      
+      // 如果满足要求，将羁绊添加到相应队伍
+      if (alphaMatches >= bond.minUnits) {
+        result.alpha.push(bond);
+      }
+      
+      if (betaMatches >= bond.minUnits) {
+        result.beta.push(bond);
+      }
+    });
+    
+    return result;
+  };
+  
+  // 获取羁绊修正值的辅助函数
+  const getBondModifier = (
+    appliedBonds: {alpha: Bond[], beta: Bond[]}, 
+    unit: Unit, 
+    statType: 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate'
+  ) => {
+    let modifier = 0;
+    
+    // 确定检查哪个队伍的羁绊
+    const teamBonds = unit.team === 'alpha' ? appliedBonds.alpha : appliedBonds.beta;
+    
+    // 累计所有适用羁绊的效果
+    teamBonds.forEach(bond => {
+      bond.effects.forEach(effect => {
+        if (effect.target === statType) {
+          modifier += effect.type === 'buff' ? effect.value : -effect.value;
+        }
+      });
+    });
+    
+    return modifier;
+  };
 
   const setTerrain = useCallback((terrain: TerrainType) => {
     setActiveTerrain(terrain);

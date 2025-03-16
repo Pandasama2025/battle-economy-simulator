@@ -6,6 +6,7 @@ import UnitCreator from './UnitCreator';
 import AutoChessControls from './AutoChessControls';
 import BattleField from './BattleField';
 import BalanceOptimizationPanel from './advanced/BalanceOptimizationPanel';
+import BondEditor from './BondEditor';
 import { useGame } from '@/context/GameContext';
 
 const Dashboard = () => {
@@ -31,9 +32,10 @@ const Dashboard = () => {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid grid-cols-4 h-auto p-1">
+        <TabsList className="grid grid-cols-5 h-auto p-1">
           <TabsTrigger value="simulation" className="py-2">战斗模拟</TabsTrigger>
           <TabsTrigger value="units" className="py-2">单位编辑</TabsTrigger>
+          <TabsTrigger value="bonds" className="py-2">羁绊系统</TabsTrigger>
           <TabsTrigger value="balance" className="py-2">平衡分析</TabsTrigger>
           <TabsTrigger value="advanced" className="py-2">高级设置</TabsTrigger>
         </TabsList>
@@ -101,6 +103,10 @@ const Dashboard = () => {
               </Card>
             </div>
           </div>
+        </TabsContent>
+        
+        <TabsContent value="bonds" className="space-y-4">
+          <BondEditor />
         </TabsContent>
         
         <TabsContent value="balance" className="space-y-4">
