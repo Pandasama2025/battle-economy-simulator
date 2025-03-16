@@ -6,12 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Trash, Edit, Save, X, Heart } from 'lucide-react';
-import { Unit, UnitType } from '@/types/battle';
+import { Unit, UnitType, RaceType, ProfessionType } from '@/types/battle';
 import { useGameContext } from '@/context/GameContext';
 
 const DEFAULT_UNIT: Omit<Unit, 'id'> = {
   name: '',
   type: '战士',
+  race: '人类',
+  profession: '坦克',
   level: 1,
   team: 'alpha',
   maxHP: 300,
@@ -33,6 +35,14 @@ const DEFAULT_UNIT: Omit<Unit, 'id'> = {
 
 const UNIT_TYPES: UnitType[] = [
   '战士', '法师', '射手', '骑士', '牧师', '刺客', '商人'
+];
+
+const RACE_TYPES: RaceType[] = [
+  '人类', '精灵', '龙族', '亡灵', '机械', '元素'
+];
+
+const PROFESSION_TYPES: ProfessionType[] = [
+  '坦克', '输出', '辅助', '控制', '刺客'
 ];
 
 const UnitEditor: React.FC = () => {
@@ -137,6 +147,8 @@ const UnitEditor: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-sm text-muted-foreground">类型: {unit.type}</div>
+                    <div className="text-sm text-muted-foreground">种族: {unit.race}</div>
+                    <div className="text-sm text-muted-foreground">职业: {unit.profession}</div>
                     <div className="text-sm text-muted-foreground">生命值: {unit.maxHP}</div>
                     <div className="text-sm text-muted-foreground">攻击力: {unit.attack}</div>
                     <div className="text-sm text-muted-foreground">防御力: {unit.defense}</div>
@@ -163,11 +175,39 @@ const UnitEditor: React.FC = () => {
                   <select 
                     id="type" 
                     value={newUnit.type}
-                    onChange={(e) => handleNewUnitChange('type', e.target.value)}
+                    onChange={(e) => handleNewUnitChange('type', e.target.value as UnitType)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {UNIT_TYPES.map(type => (
                       <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="race">种族</Label>
+                  <select 
+                    id="race" 
+                    value={newUnit.race}
+                    onChange={(e) => handleNewUnitChange('race', e.target.value as RaceType)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {RACE_TYPES.map(race => (
+                      <option key={race} value={race}>{race}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="profession">职业</Label>
+                  <select 
+                    id="profession" 
+                    value={newUnit.profession}
+                    onChange={(e) => handleNewUnitChange('profession', e.target.value as ProfessionType)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {PROFESSION_TYPES.map(profession => (
+                      <option key={profession} value={profession}>{profession}</option>
                     ))}
                   </select>
                 </div>
@@ -271,11 +311,39 @@ const UnitEditor: React.FC = () => {
                       <select 
                         id="edit-type" 
                         value={editingUnit.type}
-                        onChange={(e) => handleEditingUnitChange('type', e.target.value)}
+                        onChange={(e) => handleEditingUnitChange('type', e.target.value as UnitType)}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {UNIT_TYPES.map(type => (
                           <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="edit-race">种族</Label>
+                      <select 
+                        id="edit-race" 
+                        value={editingUnit.race}
+                        onChange={(e) => handleEditingUnitChange('race', e.target.value as RaceType)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {RACE_TYPES.map(race => (
+                          <option key={race} value={race}>{race}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="edit-profession">职业</Label>
+                      <select 
+                        id="edit-profession" 
+                        value={editingUnit.profession}
+                        onChange={(e) => handleEditingUnitChange('profession', e.target.value as ProfessionType)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {PROFESSION_TYPES.map(profession => (
+                          <option key={profession} value={profession}>{profession}</option>
                         ))}
                       </select>
                     </div>

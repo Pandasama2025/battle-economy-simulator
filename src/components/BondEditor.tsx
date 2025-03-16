@@ -7,11 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash, Save, X, Edit, Link, Unlink } from 'lucide-react';
-import { useGameContext } from '@/context/GameContext';
-import { Bond } from '@/context/GameContext';
+import { useGameContext, Bond } from '@/context/GameContext';
 import { UnitType } from '@/types/battle';
 
-const UNIT_TYPES: UnitType[] = [
+const UNIT_TYPES = [
   '战士', '法师', '射手', '骑士', '牧师', '刺客', '商人'
 ];
 
@@ -24,6 +23,15 @@ const STAT_TARGETS = [
   { value: 'maxHP', label: '生命值' },
   { value: 'critRate', label: '暴击率' }
 ];
+
+type EffectType = 'buff' | 'debuff';
+type TargetType = 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate';
+
+interface BondEffect {
+  type: EffectType;
+  value: number;
+  target: TargetType;
+}
 
 const DEFAULT_BOND: Omit<Bond, 'id'> = {
   name: '',
@@ -128,10 +136,10 @@ const BondEditor: React.FC = () => {
 
   // 添加效果到新羁绊
   const addEffectToNew = () => {
-    const newEffect = {
+    const newEffect: BondEffect = {
       type: 'buff',
       value: 0.1,
-      target: 'attack' as 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate'
+      target: 'attack'
     };
     
     setNewBond({
@@ -144,10 +152,10 @@ const BondEditor: React.FC = () => {
   const addEffectToEditing = () => {
     if (!editingBond) return;
     
-    const newEffect = {
+    const newEffect: BondEffect = {
       type: 'buff',
       value: 0.1,
-      target: 'attack' as 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate'
+      target: 'attack'
     };
     
     setEditingBond({
@@ -159,10 +167,22 @@ const BondEditor: React.FC = () => {
   // 更新新羁绊的效果
   const updateNewEffect = (index: number, field: string, value: any) => {
     const updatedEffects = [...newBond.effects];
-    updatedEffects[index] = {
-      ...updatedEffects[index],
-      [field]: field === 'value' ? parseFloat(value) : value
-    };
+    if (field === 'type') {
+      updatedEffects[index] = {
+        ...updatedEffects[index],
+        type: value as EffectType
+      };
+    } else if (field === 'target') {
+      updatedEffects[index] = {
+        ...updatedEffects[index],
+        target: value as TargetType
+      };
+    } else if (field === 'value') {
+      updatedEffects[index] = {
+        ...updatedEffects[index],
+        value: parseFloat(value)
+      };
+    }
     
     setNewBond({
       ...newBond,
@@ -175,10 +195,22 @@ const BondEditor: React.FC = () => {
     if (!editingBond) return;
     
     const updatedEffects = [...editingBond.effects];
-    updatedEffects[index] = {
-      ...updatedEffects[index],
-      [field]: field === 'value' ? parseFloat(value) : value
-    };
+    if (field === 'type') {
+      updatedEffects[index] = {
+        ...updatedEffects[index],
+        type: value as EffectType
+      };
+    } else if (field === 'target') {
+      updatedEffects[index] = {
+        ...updatedEffects[index],
+        target: value as TargetType
+      };
+    } else if (field === 'value') {
+      updatedEffects[index] = {
+        ...updatedEffects[index],
+        value: parseFloat(value)
+      };
+    }
     
     setEditingBond({
       ...editingBond,

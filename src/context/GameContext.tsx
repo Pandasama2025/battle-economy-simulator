@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { BattleState, Unit, UnitType, RaceType, ProfessionType } from '@/types/battle';
+import { BattleState, Unit, UnitType, RaceType, ProfessionType, TerrainType } from '@/types/battle';
 import { useToast } from '@/hooks/use-toast';
 import { PerformanceMonitor } from '@/lib/utils/PerformanceMonitor';
 
@@ -19,7 +19,7 @@ export interface Bond {
 interface GameContextProps {
   battleState: BattleState | null;
   setBattleState: React.Dispatch<React.SetStateAction<BattleState | null>>;
-  addUnit: (unit: Unit) => void;
+  addUnit: (unit: Omit<Unit, "id">) => void;
   removeUnit: (unitId: string) => void;
   startBattle: () => void;
   pauseBattle: () => void;
@@ -36,6 +36,11 @@ interface GameContextProps {
   units: Unit[];
   updateUnit: (id: string, unit: Unit) => void;
   deleteUnit: (id: string) => void;
+  isSimulationRunning: boolean;
+  activeTerrain: TerrainType;
+  setTerrain: (terrain: TerrainType) => void;
+  advanceBattleRound: () => void;
+  battleLog: Array<{message: string}>;
 }
 
 const GameContext = createContext<GameContextProps | undefined>(undefined);
@@ -54,6 +59,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [battleState, setBattleState] = useState<BattleState | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationSpeed, setSimulationSpeed] = useState(1);
+  const [activeTerrain, setActiveTerrain] = useState<TerrainType>("plains");
+  const [battleLog, setBattleLog] = useState<Array<{message: string}>>([]);
   const simulationRef = useRef<NodeJS.Timeout | null>(null);
   const performanceMonitor = useRef(new PerformanceMonitor()).current;
   const { toast } = useToast();
@@ -71,7 +78,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         beta: [],
       },
       terrain: {
-        type: 'plains',
+        type: activeTerrain,
         effects: {},
       },
       log: [],
@@ -82,19 +89,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     setBattleState(initialState);
-  }, []);
+  }, [activeTerrain]);
 
-  const addUnit = useCallback((unit: Unit) => {
-    setUnits(prev => [...prev, unit]);
+  const addUnit = useCallback((unit: Omit<Unit, "id">) => {
+    const newUnit: Unit = {
+      ...unit,
+      id: `unit-${Math.random().toString(36).substring(2, 9)}`
+    };
+    
+    setUnits(prev => [...prev, newUnit]);
     setBattleState(prev => {
       if (!prev) return prev;
       
-      const team = unit.team;
+      const team = newUnit.team;
       return {
         ...prev,
         teams: {
           ...prev.teams,
-          [team]: [...prev.teams[team], unit]
+          [team]: [...prev.teams[team], newUnit]
         }
       };
     });
@@ -257,23 +269,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           winner = 'beta';
         }
         
+        const newLogEntry = {
+          round: prev.round,
+          timestamp: Date.now(),
+          actorId: 'system',
+          action: 'attack' as const,
+          message: `战斗结束！${
+            winner === 'alpha' ? 'A队获胜!' : 
+            winner === 'beta' ? 'B队获胜!' : 
+            '战斗平局!'
+          }`
+        };
+        
+        setBattleLog(oldLog => [...oldLog, { message: newLogEntry.message }]);
+        
         return {
           ...prev,
           status: 'completed',
           winner,
           log: [
             ...prev.log,
-            {
-              round: prev.round,
-              timestamp: Date.now(),
-              actorId: 'system',
-              action: 'attack',
-              message: `战斗结束！${
-                winner === 'alpha' ? 'A队获胜!' : 
-                winner === 'beta' ? 'B队获胜!' : 
-                '战斗平局!'
-              }`
-            }
+            newLogEntry
           ]
         };
       }
@@ -373,6 +389,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, delay);
   }, [battleState, simulationSpeed]);
 
+  const setTerrain = useCallback((terrain: TerrainType) => {
+    setActiveTerrain(terrain);
+    if (battleState) {
+      setBattleState(prev => ({
+        ...prev!,
+        terrain: {
+          ...prev!.terrain,
+          type: terrain
+        }
+      }));
+    }
+  }, [battleState]);
+
+  const advanceBattleRound = useCallback(() => {
+    if (!battleState || battleState.status === 'completed') return;
+    
+    if (battleState.status === 'preparing') {
+      startBattle();
+      return;
+    }
+    
+    if (!isSimulating) {
+      simulateBattle();
+    }
+  }, [battleState, isSimulating, startBattle, simulateBattle]);
+
   return (
     <GameContext.Provider value={{
       battleState,
@@ -393,7 +435,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deleteBond,
       units,
       updateUnit,
-      deleteUnit
+      deleteUnit,
+      isSimulationRunning: isSimulating,
+      activeTerrain,
+      setTerrain,
+      advanceBattleRound,
+      battleLog
     }}>
       {children}
     </GameContext.Provider>
