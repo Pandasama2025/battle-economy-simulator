@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -61,7 +60,7 @@ const BondEditor: React.FC = () => {
     if (bonds.length === 0 && activeTab === 'bonds') {
       toast({
         title: "羁绊系统",
-        description: "您还未创建任何羁绊，请切换到"添加羁绊"选项卡创建",
+        description: "您还未创建任何羁绊，请切换到\"添加羁绊\"选项卡创建",
       });
     }
   }, [activeTab, bonds.length, toast]);
