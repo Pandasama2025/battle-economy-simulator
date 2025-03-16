@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,15 +7,22 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend } from 'recharts';
+import { PlusCircle, Play, Save } from 'lucide-react';
 
 import { BalanceSimulator } from '@/lib/balance/BalanceSimulator';
 import { AutoBalancer } from '@/lib/balance/AutoBalancer';
 import { SimulationResult } from '@/types/balance';
 import { BattleConfiguration } from '@/types/battle';
 import { EconomyConfiguration } from '@/types/economy';
+import { useGameContext } from '@/context/GameContext';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const BalanceAnalyzer = () => {
   const { toast } = useToast();
+  const { balanceParameters, setBalanceParameters, bonds, addBond, updateBond, deleteBond } = useGameContext();
   const [currentTab, setCurrentTab] = useState('simulator');
   const [isSimulating, setIsSimulating] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -25,13 +33,42 @@ const BalanceAnalyzer = () => {
   const [bestParameters, setBestParameters] = useState<Record<string, number> | null>(null);
   const [optimizationProgress, setOptimizationProgress] = useState(0);
   const [parameterConfig, setParameterConfig] = useState({
-    physicalDefense: 0.035,
-    magicResistance: 0.028,
-    criticalRate: 0.15,
-    healingEfficiency: 1.0,
-    goldScaling: 1.2,
-    interestRate: 0.1,
+    physicalDefense: balanceParameters.physicalDefense,
+    magicResistance: balanceParameters.magicResistance,
+    criticalRate: balanceParameters.criticalRate,
+    healingEfficiency: balanceParameters.healingEfficiency,
+    goldScaling: balanceParameters.goldScaling,
+    interestRate: balanceParameters.interestRate,
   });
+  
+  // 新增状态用于自动应用优化结果
+  const [autoApplyOptimization, setAutoApplyOptimization] = useState(true);
+  
+  // 新增状态用于编辑羁绊
+  const [isAddingBond, setIsAddingBond] = useState(false);
+  const [newBond, setNewBond] = useState({
+    name: '',
+    description: '',
+    requiredTypes: [] as string[],
+    minUnits: 2,
+    effects: [{
+      type: 'buff' as 'buff' | 'debuff',
+      value: 0.1,
+      target: 'attack' as 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate'
+    }]
+  });
+  
+  // 同步GameContext中的参数
+  useEffect(() => {
+    setParameterConfig({
+      physicalDefense: balanceParameters.physicalDefense,
+      magicResistance: balanceParameters.magicResistance,
+      criticalRate: balanceParameters.criticalRate,
+      healingEfficiency: balanceParameters.healingEfficiency,
+      goldScaling: balanceParameters.goldScaling,
+      interestRate: balanceParameters.interestRate,
+    });
+  }, [balanceParameters]);
   
   const simulatorRef = useRef<BalanceSimulator | null>(null);
   const optimizerRef = useRef<AutoBalancer | null>(null);
@@ -107,6 +144,9 @@ const BalanceAnalyzer = () => {
         description: `将模拟 ${batchSize[0]} 种参数组合`,
       });
       
+      // 更新模拟器中使用的配置参数
+      updateSimulatorConfig();
+      
       const results = await simulatorRef.current.batchTest(batchSize[0]);
       setSimulationResults(results);
       
@@ -129,6 +169,63 @@ const BalanceAnalyzer = () => {
     }
   };
   
+  // 更新模拟器配置
+  const updateSimulatorConfig = () => {
+    if (!simulatorRef.current) return;
+    
+    const battleConfig: BattleConfiguration = {
+      roundTimeLimit: 60,
+      maxRounds: 20,
+      terrain: "plains",
+      environmentEffects: true,
+      combatParameters: {
+        physicalDefense: parameterConfig.physicalDefense,
+        magicResistance: parameterConfig.magicResistance,
+        criticalRate: parameterConfig.criticalRate,
+        healingEfficiency: parameterConfig.healingEfficiency,
+      }
+    };
+    
+    const economyConfig: EconomyConfiguration = {
+      startingGold: 10,
+      interestThresholds: [10, 20, 30, 40, 50],
+      interestCap: 5,
+      levelCosts: [4, 8, 12, 16, 24, 36, 56],
+      unitPoolSize: {
+        "common": 30,
+        "uncommon": 20,
+        "rare": 12,
+        "epic": 8,
+        "legendary": 5
+      },
+      itemPoolSize: {
+        "unit": 20,
+        "equipment": 15,
+        "consumable": 10,
+        "upgrade": 5
+      },
+      roundIncome: {
+        base: 5,
+        winBonus: 1,
+        loseBonus: 1
+      },
+      sellingReturn: 0.7,
+      
+      goldScaling: parameterConfig.goldScaling,
+      interestRate: parameterConfig.interestRate,
+      unitCost: 3,
+    };
+    
+    simulatorRef.current = new BalanceSimulator(battleConfig, economyConfig);
+    if (optimizerRef.current) {
+      optimizerRef.current = new AutoBalancer(simulatorRef.current);
+      optimizerRef.current.setIterationCallback((result, iteration) => {
+        setSimulationResults(prev => [...prev, result]);
+        setOptimizationProgress(iteration);
+      });
+    }
+  };
+  
   const startOptimization = async () => {
     if (!optimizerRef.current) return;
     
@@ -141,6 +238,9 @@ const BalanceAnalyzer = () => {
         title: "开始参数优化",
         description: "使用贝叶斯优化寻找最佳平衡参数",
       });
+      
+      // 更新模拟器中使用的配置参数
+      updateSimulatorConfig();
       
       const paramSpace: Record<string, [number, number]> = {
         physicalDefense: [0.01, 0.05] as [number, number],
@@ -159,10 +259,15 @@ const BalanceAnalyzer = () => {
       
       setBestParameters(bestParams);
       
+      // 自动应用最佳参数（如果启用）
+      if (autoApplyOptimization && bestParams) {
+        applyRecommendedParameters();
+      }
+      
       if (optimizerRef.current) {
         try {
           const sensitivity = optimizerRef.current.generateSensitivityReport();
-          const sensitivityArray = Object.entries(sensitivity).map(([name, value]) => ({
+          const sensitivityArray = Object.entries(sensitivity.parameters).map(([name, value]) => ({
             name,
             value: Math.abs(value)
           })).sort((a, b) => b.value - a.value);
@@ -175,7 +280,7 @@ const BalanceAnalyzer = () => {
       
       toast({
         title: "优化完成",
-        description: "已找到最佳参数配置",
+        description: "已找到最佳参数配置" + (autoApplyOptimization ? "并已自动应用" : ""),
       });
     } catch (e) {
       console.error("优化过程中出错:", e);
@@ -202,10 +307,17 @@ const BalanceAnalyzer = () => {
   
   const applyRecommendedParameters = () => {
     if (bestParameters) {
+      // 更新本地状态
       setParameterConfig(prev => ({
         ...prev,
         ...bestParameters
       }));
+      
+      // 更新全局游戏上下文
+      setBalanceParameters({
+        ...balanceParameters,
+        ...bestParameters
+      });
       
       toast({
         title: "已应用推荐参数",
@@ -257,6 +369,9 @@ const BalanceAnalyzer = () => {
         description: "将进行参数随机扰动模拟",
       });
       
+      // 更新模拟器中使用的配置参数
+      updateSimulatorConfig();
+      
       const results = await simulatorRef.current.monteCarloSimulation(
         parameterConfig,
         30,
@@ -282,6 +397,101 @@ const BalanceAnalyzer = () => {
     }
   };
 
+  // 添加新羁绊到游戏
+  const handleAddBond = () => {
+    if (!newBond.name || newBond.requiredTypes.length === 0) {
+      toast({
+        title: "无法添加羁绊",
+        description: "请确保填写了羁绊名称并选择了所需单位类型",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    addBond({
+      name: newBond.name,
+      description: newBond.description,
+      requiredTypes: newBond.requiredTypes,
+      minUnits: newBond.minUnits,
+      effects: newBond.effects.map(effect => ({
+        type: effect.type,
+        value: effect.value,
+        target: effect.target
+      }))
+    });
+    
+    // 重置表单
+    setNewBond({
+      name: '',
+      description: '',
+      requiredTypes: [],
+      minUnits: 2,
+      effects: [{
+        type: 'buff' as 'buff' | 'debuff',
+        value: 0.1,
+        target: 'attack' as 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate'
+      }]
+    });
+    
+    setIsAddingBond(false);
+    
+    toast({
+      title: "羁绊已添加",
+      description: `新羁绊 "${newBond.name}" 已添加到游戏`,
+    });
+  };
+  
+  // 更新新羁绊状态
+  const updateNewBond = (field: string, value: any) => {
+    setNewBond(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+  
+  // 更新羁绊效果
+  const updateBondEffect = (index: number, field: string, value: any) => {
+    setNewBond(prev => {
+      const updatedEffects = [...prev.effects];
+      updatedEffects[index] = {
+        ...updatedEffects[index],
+        [field]: value
+      };
+      return {
+        ...prev,
+        effects: updatedEffects
+      };
+    });
+  };
+  
+  // 添加新效果
+  const addBondEffect = () => {
+    setNewBond(prev => ({
+      ...prev,
+      effects: [
+        ...prev.effects,
+        {
+          type: 'buff' as 'buff' | 'debuff',
+          value: 0.1,
+          target: 'attack' as 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate'
+        }
+      ]
+    }));
+  };
+  
+  // 应用当前参数到游戏中
+  const applyCurrentParameters = () => {
+    setBalanceParameters({
+      ...balanceParameters,
+      ...parameterConfig
+    });
+    
+    toast({
+      title: "参数已应用",
+      description: "当前参数已应用到游戏中",
+    });
+  };
+
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">平衡分析系统</h3>
@@ -291,6 +501,7 @@ const BalanceAnalyzer = () => {
           <TabsTrigger value="simulator">参数模拟</TabsTrigger>
           <TabsTrigger value="optimizer">智能调优</TabsTrigger>
           <TabsTrigger value="visualizer">数据可视化</TabsTrigger>
+          <TabsTrigger value="bonds">羁绊管理</TabsTrigger>
         </TabsList>
         
         <TabsContent value="simulator" className="space-y-6">
@@ -385,6 +596,15 @@ const BalanceAnalyzer = () => {
                   </div>
                 </div>
               </div>
+              
+              <Button 
+                onClick={applyCurrentParameters} 
+                className="mt-4 text-xs w-full"
+                variant="outline"
+              >
+                <Save className="w-3 h-3 mr-2" />
+                将这些参数应用到游戏
+              </Button>
             </div>
             
             <div className="space-y-2">
@@ -489,8 +709,22 @@ const BalanceAnalyzer = () => {
             <div>
               <h4 className="text-sm font-medium mb-2">自动调优</h4>
               <p className="text-xs text-muted-foreground mb-4">
-                使用贝叶斯优化算法自动寻找最佳参数组合，以获得最高的平衡性得���。
+                使用贝叶斯优化算法自动寻找最佳参数组合，以获得最高的平衡性得分。
               </p>
+              
+              <div className="flex items-center mb-4">
+                <Switch 
+                  id="auto-apply"
+                  checked={autoApplyOptimization}
+                  onCheckedChange={setAutoApplyOptimization}
+                />
+                <label 
+                  htmlFor="auto-apply" 
+                  className="text-sm cursor-pointer ml-2"
+                >
+                  优化完成后自动应用最佳参数
+                </label>
+              </div>
               
               <div className="flex space-x-2 mb-4">
                 <Button 
@@ -498,6 +732,7 @@ const BalanceAnalyzer = () => {
                   disabled={isOptimizing}
                   className="text-xs"
                 >
+                  <Play className="w-3 h-3 mr-1" />
                   开始优化
                 </Button>
                 {isOptimizing && (
@@ -692,6 +927,209 @@ const BalanceAnalyzer = () => {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p>请先运行批量模拟或优化以生成可视化数据</p>
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="bonds" className="space-y-6">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-sm font-medium">羁绊管理</h4>
+            <Dialog open={isAddingBond} onOpenChange={setIsAddingBond}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="text-xs">
+                  <PlusCircle className="w-3 h-3 mr-1" />
+                  添加新羁绊
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>添加新羁绊</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-2">
+                    <Label htmlFor="name" className="text-right">羁绊名称</Label>
+                    <Input
+                      id="name"
+                      className="col-span-3"
+                      value={newBond.name}
+                      onChange={(e) => updateNewBond('name', e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-2">
+                    <Label htmlFor="description" className="text-right">描述</Label>
+                    <Input
+                      id="description"
+                      className="col-span-3"
+                      value={newBond.description}
+                      onChange={(e) => updateNewBond('description', e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-2">
+                    <Label htmlFor="minUnits" className="text-right">所需单位数</Label>
+                    <Input
+                      id="minUnits"
+                      type="number"
+                      min={1}
+                      max={10}
+                      className="col-span-3"
+                      value={newBond.minUnits}
+                      onChange={(e) => updateNewBond('minUnits', parseInt(e.target.value))}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-2">
+                    <Label className="text-right">所需类型</Label>
+                    <div className="col-span-3 flex flex-wrap gap-2">
+                      {['战士', '法师', '弓箭手', '骑士', '牧师', '刺客', '商人'].map(type => (
+                        <Button
+                          key={type}
+                          variant={newBond.requiredTypes.includes(type) ? "default" : "outline"}
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => {
+                            const types = newBond.requiredTypes.includes(type)
+                              ? newBond.requiredTypes.filter(t => t !== type)
+                              : [...newBond.requiredTypes, type];
+                            updateNewBond('requiredTypes', types);
+                          }}
+                        >
+                          {type}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="mb-2 flex justify-between items-center">
+                      <Label>效果</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={addBondEffect}
+                      >
+                        添加效果
+                      </Button>
+                    </div>
+                    
+                    {newBond.effects.map((effect, index) => (
+                      <div key={index} className="grid grid-cols-12 gap-2 items-center mb-2">
+                        <div className="col-span-3">
+                          <Select
+                            value={effect.type}
+                            onValueChange={(value) => updateBondEffect(index, 'type', value as 'buff' | 'debuff')}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="buff">增益</SelectItem>
+                              <SelectItem value="debuff">减益</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-3">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            max="1"
+                            value={effect.value}
+                            onChange={(e) => updateBondEffect(index, 'value', parseFloat(e.target.value))}
+                          />
+                        </div>
+                        <div className="col-span-6">
+                          <Select
+                            value={effect.target}
+                            onValueChange={(value) => updateBondEffect(index, 'target', value as 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate')}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="attack">攻击力</SelectItem>
+                              <SelectItem value="defense">防御力</SelectItem>
+                              <SelectItem value="magicPower">魔法强度</SelectItem>
+                              <SelectItem value="magicResistance">魔法抗性</SelectItem>
+                              <SelectItem value="speed">速度</SelectItem>
+                              <SelectItem value="maxHP">最大生命</SelectItem>
+                              <SelectItem value="critRate">暴击率</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => setIsAddingBond(false)} variant="outline">取消</Button>
+                  <Button onClick={handleAddBond}>添加羁绊</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          
+          {bonds.length > 0 ? (
+            <div className="space-y-4">
+              {bonds.map((bond) => (
+                <Card key={bond.id} className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h5 className="font-medium">{bond.name}</h5>
+                      <p className="text-xs text-muted-foreground">{bond.description}</p>
+                    </div>
+                    <div className="flex space-x-1">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-7 text-xs"
+                        onClick={() => deleteBond(bond.id)}
+                      >
+                        删除
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs">
+                    <div className="mb-2">
+                      <span className="text-muted-foreground">所需: </span>
+                      <span className="font-medium">{bond.minUnits}+ 单位</span>
+                      <span className="text-muted-foreground ml-2">类型: </span>
+                      <span className="font-medium">{bond.requiredTypes.join('、')}</span>
+                    </div>
+                    
+                    <div>
+                      <span className="text-muted-foreground">效果:</span>
+                      <ul className="mt-1 pl-4 space-y-1 list-disc">
+                        {bond.effects.map((effect, i) => (
+                          <li key={i}>
+                            {effect.type === 'buff' ? '增加' : '减少'} 
+                            {' '}{(effect.value * 100).toFixed(0)}% 
+                            {' '}{(() => {
+                              switch(effect.target) {
+                                case 'attack': return '攻击力';
+                                case 'defense': return '防御力';
+                                case 'magicPower': return '魔法强度';
+                                case 'magicResistance': return '魔法抗性';
+                                case 'speed': return '速度';
+                                case 'maxHP': return '最大生命';
+                                case 'critRate': return '暴击率';
+                                default: return effect.target;
+                              }
+                            })()}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>尚未添加任何羁绊，点击"添加新羁绊"按钮创建</p>
             </div>
           )}
         </TabsContent>

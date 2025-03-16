@@ -1,13 +1,18 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Play, Pause, RotateCcw, Settings, Save, ChevronDown, ChevronUp, LineChart } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, Save, ChevronDown, ChevronUp, LineChart, BarChart2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useGameContext } from '@/context/GameContext';
 import { TerrainType } from '@/types/battle';
+
+// 导入平衡分析相关类
+import { BalanceSimulator } from '@/lib/balance/BalanceSimulator';
+import { SimulationResult } from '@/types/balance';
 
 const SimulationControls = () => {
   const { 
@@ -18,7 +23,9 @@ const SimulationControls = () => {
     pauseBattle, 
     resetBattle, 
     advanceBattleRound,
-    battleState
+    battleState,
+    setBalanceParameters,
+    balanceParameters
   } = useGameContext();
   
   const [speed, setSpeed] = useState([50]);
@@ -26,6 +33,8 @@ const SimulationControls = () => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [simProgress, setSimProgress] = useState(0);
+  const [showSimulationResults, setShowSimulationResults] = useState(false);
+  const [simulationResults, setSimulationResults] = useState<SimulationResult[]>([]);
   const { toast } = useToast();
 
   // 处理自动推进战斗
@@ -72,6 +81,7 @@ const SimulationControls = () => {
     resetBattle();
     setSimProgress(0);
     setAutoAdvance(false);
+    setShowSimulationResults(false);
     
     toast({
       title: "模拟已重置",
@@ -79,19 +89,130 @@ const SimulationControls = () => {
     });
   };
 
-  // 触发分析
-  const triggerAnalysis = () => {
+  // 触发分析并连接到平衡分析系统
+  const triggerAnalysis = async () => {
+    if (!battleState) {
+      toast({
+        title: "无法分析",
+        description: "请先进行一次完整的战斗模拟",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     toast({
-      title: "分析完成",
-      description: "平衡评分: 78/100",
+      title: "正在分析战斗数据",
+      description: "请稍候...",
     });
+    
+    try {
+      // 创建平衡模拟器实例
+      const battleConfig = {
+        roundTimeLimit: 60,
+        maxRounds: battleState.maxRounds,
+        terrain: activeTerrain,
+        environmentEffects: battleState.environmentEffects,
+        combatParameters: {
+          physicalDefense: balanceParameters.physicalDefense,
+          magicResistance: balanceParameters.magicResistance,
+          criticalRate: balanceParameters.criticalRate,
+          healingEfficiency: balanceParameters.healingEfficiency,
+        }
+      };
+      
+      const economyConfig = {
+        startingGold: 10,
+        interestRate: balanceParameters.interestRate,
+        goldScaling: balanceParameters.goldScaling,
+        unitCost: 3,
+        sellingReturn: 0.7,
+        interestThresholds: [10, 20, 30, 40, 50],
+        interestCap: 5,
+        levelCosts: [4, 8, 12, 16, 24, 36, 56],
+        unitPoolSize: {
+          "common": 30,
+          "uncommon": 20,
+          "rare": 12,
+          "epic": 8,
+          "legendary": 5
+        },
+        itemPoolSize: {
+          "unit": 20,
+          "equipment": 15,
+          "consumable": 10,
+          "upgrade": 5
+        },
+        roundIncome: {
+          base: 5,
+          winBonus: 1,
+          loseBonus: 1
+        }
+      };
+      
+      const simulator = new BalanceSimulator(battleConfig, economyConfig);
+      
+      // 根据当前战斗结果生成模拟数据
+      const results = await simulator.monteCarloSimulation(
+        balanceParameters,
+        10, // 小规模模拟
+        0.05 // 小扰动
+      );
+      
+      setSimulationResults(results);
+      setShowSimulationResults(true);
+      
+      // 计算平均平衡分数
+      const avgScore = results.reduce((sum, r) => sum + r.balanceScore, 0) / results.length;
+      
+      toast({
+        title: "分析完成",
+        description: `平衡评分: ${avgScore.toFixed(1)}/100`,
+      });
+    } catch (error) {
+      console.error("分析过程中出错:", error);
+      toast({
+        title: "分析失败",
+        description: "处理数据时出现错误",
+        variant: "destructive"
+      });
+    }
   };
 
   // 保存当前配置
   const saveConfig = () => {
+    const configToSave = {
+      physicalDefense: balanceParameters.physicalDefense,
+      magicResistance: balanceParameters.magicResistance,
+      criticalRate: balanceParameters.criticalRate,
+      healingEfficiency: balanceParameters.healingEfficiency,
+      goldScaling: balanceParameters.goldScaling,
+      interestRate: balanceParameters.interestRate
+    };
+    
+    // 保存到本地存储
+    localStorage.setItem('battleConfig', JSON.stringify(configToSave));
+    
     toast({
       title: "配置已保存",
       description: "当前游戏配置已保存",
+    });
+  };
+
+  // 更新平衡参数
+  const updateBalanceParameter = (param: string, value: number) => {
+    setBalanceParameters({
+      ...balanceParameters,
+      [param]: value
+    });
+  };
+
+  // 打开平衡分析系统
+  const openBalanceAnalyzer = () => {
+    // 这里可以通过全局状态或路由导航到平衡分析系统
+    window.location.href = '#balance-analyzer';
+    toast({
+      title: "已打开平衡分析系统",
+      description: "您现在可以查看完整的平衡分析和优化工具",
     });
   };
 
@@ -144,16 +265,28 @@ const SimulationControls = () => {
             </label>
           </div>
           
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={triggerAnalysis}
-            disabled={isSimulationRunning}
-            className="text-xs"
-          >
-            <LineChart className="w-3 h-3 mr-1" />
-            手动分析
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={triggerAnalysis}
+              disabled={isSimulationRunning}
+              className="text-xs"
+            >
+              <LineChart className="w-3 h-3 mr-1" />
+              战斗分析
+            </Button>
+            
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={openBalanceAnalyzer}
+              className="text-xs"
+            >
+              <BarChart2 className="w-3 h-3 mr-1" />
+              平衡系统
+            </Button>
+          </div>
         </div>
 
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
@@ -208,10 +341,11 @@ const SimulationControls = () => {
                     <input 
                       type="number" 
                       className="w-16 bg-background text-right border rounded px-1" 
-                      value="0.035" 
+                      value={balanceParameters.physicalDefense} 
                       step="0.001"
                       min="0"
                       max="1"
+                      onChange={(e) => updateBalanceParameter('physicalDefense', parseFloat(e.target.value))}
                     />
                   </div>
                   
@@ -220,10 +354,11 @@ const SimulationControls = () => {
                     <input 
                       type="number" 
                       className="w-16 bg-background text-right border rounded px-1" 
-                      value="0.028" 
+                      value={balanceParameters.magicResistance} 
                       step="0.001"
                       min="0"
                       max="1"
+                      onChange={(e) => updateBalanceParameter('magicResistance', parseFloat(e.target.value))}
                     />
                   </div>
                   
@@ -232,10 +367,11 @@ const SimulationControls = () => {
                     <input 
                       type="number" 
                       className="w-16 bg-background text-right border rounded px-1" 
-                      value="0.15" 
+                      value={balanceParameters.criticalRate} 
                       step="0.01"
                       min="0"
                       max="1"
+                      onChange={(e) => updateBalanceParameter('criticalRate', parseFloat(e.target.value))}
                     />
                   </div>
                   
@@ -244,10 +380,11 @@ const SimulationControls = () => {
                     <input 
                       type="number" 
                       className="w-16 bg-background text-right border rounded px-1" 
-                      value="1.0" 
+                      value={balanceParameters.healingEfficiency} 
                       step="0.1"
                       min="0.1"
                       max="5"
+                      onChange={(e) => updateBalanceParameter('healingEfficiency', parseFloat(e.target.value))}
                     />
                   </div>
                 </div>
@@ -262,10 +399,11 @@ const SimulationControls = () => {
                 <input 
                   type="number" 
                   className="w-16 bg-background text-right border rounded px-1" 
-                  value="1.2" 
+                  value={balanceParameters.goldScaling} 
                   step="0.1"
                   min="0.5"
                   max="3"
+                  onChange={(e) => updateBalanceParameter('goldScaling', parseFloat(e.target.value))}
                 />
               </div>
               
@@ -278,6 +416,7 @@ const SimulationControls = () => {
                   step="1"
                   min="1"
                   max="10"
+                  readOnly
                 />
               </div>
               
@@ -286,10 +425,11 @@ const SimulationControls = () => {
                 <input 
                   type="number" 
                   className="w-16 bg-background text-right border rounded px-1" 
-                  value="0.1" 
+                  value={balanceParameters.interestRate} 
                   step="0.01"
                   min="0"
                   max="0.5"
+                  onChange={(e) => updateBalanceParameter('interestRate', parseFloat(e.target.value))}
                 />
               </div>
             </div>
@@ -306,6 +446,29 @@ const SimulationControls = () => {
                   className="h-full bg-primary" 
                   style={{ width: `${simProgress}%` }}
                 ></div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {showSimulationResults && simulationResults.length > 0 && (
+          <div className="mt-4 p-3 bg-muted/10 rounded-lg">
+            <div className="text-sm font-medium mb-2">分析结果</div>
+            <div className="text-xs space-y-2">
+              <div>
+                <span className="text-muted-foreground">平衡得分: </span>
+                <span className="font-medium">{(simulationResults.reduce((sum, r) => sum + r.balanceScore, 0) / simulationResults.length).toFixed(1)}/100</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">最佳参数组合: </span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-xs mt-2 w-full"
+                  onClick={openBalanceAnalyzer}
+                >
+                  查看详细分析
+                </Button>
               </div>
             </div>
           </div>

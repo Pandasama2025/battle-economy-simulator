@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { BattleState, Unit, UnitType, RaceType, ProfessionType, TerrainType } from '@/types/battle';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +15,16 @@ export interface Bond {
     value: number;
     target: 'attack' | 'defense' | 'magicPower' | 'magicResistance' | 'speed' | 'maxHP' | 'critRate';
   }[];
+}
+
+// 添加平衡参数接口
+export interface BalanceParameters {
+  physicalDefense: number;
+  magicResistance: number;
+  criticalRate: number;
+  healingEfficiency: number;
+  goldScaling: number;
+  interestRate: number;
 }
 
 interface GameContextProps {
@@ -41,6 +52,9 @@ interface GameContextProps {
   setTerrain: (terrain: TerrainType) => void;
   advanceBattleRound: () => void;
   battleLog: Array<{message: string}>;
+  // 添加平衡参数相关属性
+  balanceParameters: BalanceParameters;
+  setBalanceParameters: React.Dispatch<React.SetStateAction<BalanceParameters>>;
 }
 
 const GameContext = createContext<GameContextProps | undefined>(undefined);
@@ -55,6 +69,16 @@ export const useGame = () => {
 
 export const useGameContext = useGame;
 
+// 默认平衡参数
+const DEFAULT_BALANCE_PARAMETERS: BalanceParameters = {
+  physicalDefense: 0.035,
+  magicResistance: 0.028,
+  criticalRate: 0.15,
+  healingEfficiency: 1.0,
+  goldScaling: 1.2,
+  interestRate: 0.1
+};
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [battleState, setBattleState] = useState<BattleState | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -66,6 +90,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
   const [bonds, setBonds] = useState<Bond[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  // 添加平衡参数状态
+  const [balanceParameters, setBalanceParameters] = useState<BalanceParameters>(() => {
+    // 尝试从本地存储加载参数
+    const savedParams = localStorage.getItem('battleConfig');
+    if (savedParams) {
+      try {
+        return {...DEFAULT_BALANCE_PARAMETERS, ...JSON.parse(savedParams)};
+      } catch (e) {
+        console.error('无法解析保存的平衡参数:', e);
+      }
+    }
+    return DEFAULT_BALANCE_PARAMETERS;
+  });
 
   const initBattleState = useCallback(() => {
     const initialState: BattleState = {
@@ -339,8 +376,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const targetIndex = Math.floor(Math.random() * targetTeam.length);
         const target = targetTeam[targetIndex];
         
-        const baseDamage = unit.attack * (1 - target.defense * 0.035);
-        const isCrit = Math.random() < unit.critRate;
+        // 使用当前的平衡参数
+        const baseDamage = unit.attack * (1 - target.defense * balanceParameters.physicalDefense);
+        const isCrit = Math.random() < (unit.critRate * balanceParameters.criticalRate);
         const damage = Math.max(1, Math.round(isCrit ? baseDamage * unit.critDamage : baseDamage));
         
         target.currentHP = Math.max(0, target.currentHP - damage);
@@ -387,7 +425,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     simulationRef.current = setTimeout(() => {
       simulateBattle();
     }, delay);
-  }, [battleState, simulationSpeed]);
+  }, [battleState, simulationSpeed, balanceParameters]);
 
   const setTerrain = useCallback((terrain: TerrainType) => {
     setActiveTerrain(terrain);
@@ -440,7 +478,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeTerrain,
       setTerrain,
       advanceBattleRound,
-      battleLog
+      battleLog,
+      // 添加平衡参数相关属性
+      balanceParameters,
+      setBalanceParameters
     }}>
       {children}
     </GameContext.Provider>
