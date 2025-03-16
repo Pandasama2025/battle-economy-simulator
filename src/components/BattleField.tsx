@@ -35,7 +35,9 @@ const BattleField = () => {
   const getTeamRaceCounts = (team: Unit[]) => {
     const counts: Record<string, number> = {};
     team.forEach(unit => {
-      counts[unit.race] = (counts[unit.race] || 0) + 1;
+      if (unit.race) {
+        counts[unit.race] = (counts[unit.race] || 0) + 1;
+      }
     });
     return counts;
   };
@@ -43,7 +45,9 @@ const BattleField = () => {
   const getTeamProfessionCounts = (team: Unit[]) => {
     const counts: Record<string, number> = {};
     team.forEach(unit => {
-      counts[unit.profession] = (counts[unit.profession] || 0) + 1;
+      if (unit.profession) {
+        counts[unit.profession] = (counts[unit.profession] || 0) + 1;
+      }
     });
     return counts;
   };
@@ -177,7 +181,7 @@ const BattleField = () => {
                       <div>暴击伤害:</div>
                       <div>{selectedUnit.critDamage}x</div>
                       <div>状态:</div>
-                      <div>{selectedUnit.status}</div>
+                      <div>{selectedUnit.status || '正常'}</div>
                     </div>
                   </div>
                 </div>

@@ -154,7 +154,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addUnit = useCallback((unit: Omit<Unit, "id">) => {
     const newUnit: Unit = {
       ...unit,
-      id: `unit-${Math.random().toString(36).substring(2, 9)}`
+      id: `unit-${Math.random().toString(36).substring(2, 9)}`,
+      skills: unit.skills || [],
+      status: unit.status || 'idle'
     };
     
     setUnits(prev => [...prev, newUnit]);
@@ -365,12 +367,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...unit,
         currentHP: unit.maxHP,
         currentMana: unit.maxMana || 100,
+        status: 'idle'
       }));
       
       const resetBetaTeam = prev.teams.beta.map(unit => ({
         ...unit,
         currentHP: unit.maxHP,
         currentMana: unit.maxMana || 100,
+        status: 'idle'
       }));
       
       return {

@@ -13,10 +13,12 @@ interface BattleUnitCardProps {
 
 const BattleUnitCard: React.FC<BattleUnitCardProps> = ({ unit, isSelected, onClick }) => {
   const healthPercentage = (unit.currentHP / unit.maxHP) * 100;
-  const manaPercentage = (unit.currentMana / unit.maxMana) * 100;
+  const manaPercentage = unit.maxMana ? (unit.currentMana / unit.maxMana) * 100 : 0;
   
   // 获取职业对应的颜色
-  const getProfessionColor = (profession: string) => {
+  const getProfessionColor = (profession?: string) => {
+    if (!profession) return 'bg-gray-500 hover:bg-gray-600';
+    
     switch (profession) {
       case '坦克': return 'bg-blue-500 hover:bg-blue-600';
       case '输出': return 'bg-red-500 hover:bg-red-600';
@@ -28,7 +30,9 @@ const BattleUnitCard: React.FC<BattleUnitCardProps> = ({ unit, isSelected, onCli
   };
   
   // 获取种族对应的图标
-  const getRaceIcon = (race: string) => {
+  const getRaceIcon = (race?: string) => {
+    if (!race) return '❓';
+    
     switch (race) {
       case '人类': return '👤';
       case '精灵': return '🧝';
@@ -73,11 +77,15 @@ const BattleUnitCard: React.FC<BattleUnitCardProps> = ({ unit, isSelected, onCli
           </div>
           <Progress value={healthPercentage} className="h-1.5" />
           
-          <div className="flex justify-between text-xs mt-1">
-            <span>法力</span>
-            <span>{unit.currentMana}/{unit.maxMana}</span>
-          </div>
-          <Progress value={manaPercentage} className="h-1.5 bg-secondary" />
+          {unit.maxMana && (
+            <>
+              <div className="flex justify-between text-xs mt-1">
+                <span>法力</span>
+                <span>{unit.currentMana}/{unit.maxMana}</span>
+              </div>
+              <Progress value={manaPercentage} className="h-1.5 bg-secondary" />
+            </>
+          )}
         </div>
         
         <div className="grid grid-cols-3 gap-1 text-xs text-muted-foreground">
@@ -95,7 +103,7 @@ const BattleUnitCard: React.FC<BattleUnitCardProps> = ({ unit, isSelected, onCli
           </div>
         </div>
         
-        {unit.status !== 'idle' && unit.status !== 'dead' && (
+        {unit.status && unit.status !== 'idle' && unit.status !== 'dead' && (
           <Badge variant="secondary" className="w-full justify-center text-xs mt-1">
             {unit.status === 'attacking' ? '攻击中' : 
              unit.status === 'casting' ? '施法中' : 

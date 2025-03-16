@@ -1,5 +1,5 @@
 
-import { Unit, UnitType, ActionType, TargetType } from "@/types/battle";
+import { Unit, ActionType, TargetType } from "@/types/battle";
 
 // 战斗单位AI决策系统
 export class UnitAI {

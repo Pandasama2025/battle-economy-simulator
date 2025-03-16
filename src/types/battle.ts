@@ -1,8 +1,29 @@
+
 export type UnitType = string;
 export type RaceType = string;
 export type ProfessionType = string;
 export type FactionType = string;
-export type TerrainType = "plains" | "forest" | "mountains" | "desert" | "snow" | "swamp" | "city";
+export type TerrainType = "plains" | "forest" | "mountains" | "desert" | "snow" | "swamp" | "city" | "fire";
+export type ActionType = 'move' | 'attack' | 'defend' | 'cast' | 'skill' | 'heal' | 'buff' | 'retreat' | 'recover' | 'passive';
+export type TargetType = 'self' | 'ally' | 'enemy' | 'all';
+
+export interface SkillEffect {
+  type: 'stun' | 'debuff' | 'dot' | 'buff';
+  value: number;
+  chance?: number;
+  duration?: number;
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  damage: number;
+  manaCost: number;
+  cooldown: number;
+  currentCooldown: number;
+  effects?: SkillEffect[];
+}
 
 export interface Unit {
   id: string;
@@ -24,11 +45,13 @@ export interface Unit {
   critRate: number;
   critDamage: number;
   abilities?: string[];
+  skills?: Skill[];
   team: "alpha" | "beta";
   position?: {
     x: number;
     y: number;
   };
+  status?: 'idle' | 'attacking' | 'defending' | 'casting' | 'moving' | 'stunned' | 'dead';
 }
 
 export interface BattleState {
@@ -60,7 +83,26 @@ export interface BattleLogEntry {
   timestamp: number;
   actorId: string;
   targetId?: string;
-  action: 'move' | 'attack' | 'defend' | 'cast' | 'item' | 'passive';
+  action: ActionType;
   value?: number;
   message: string;
+  skillId?: string;
+}
+
+export interface BattleConfiguration {
+  combatParameters: {
+    physicalDefense: number;
+    magicResistance: number;
+    criticalRate: number;
+    healingEfficiency: number;
+    [key: string]: number;
+  };
+  matchParameters?: {
+    maxRounds: number;
+    teamSize: number;
+    environmentEffects: boolean;
+  };
+  terrainParameters?: {
+    terrainEffectMultiplier: number;
+  };
 }

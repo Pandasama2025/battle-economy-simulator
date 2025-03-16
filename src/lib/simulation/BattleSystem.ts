@@ -1,4 +1,4 @@
-import { Unit, BattleState, BattleLogEntry, ActionType, SkillEffect, TerrainType } from '@/types/battle';
+import { Unit, BattleState, BattleLogEntry, ActionType, SkillEffect, TerrainType, Skill } from '@/types/battle';
 
 export class BattleSystem {
   private state: BattleState;
@@ -146,9 +146,9 @@ export class BattleSystem {
       }
     }
     
-    const availableSkills = unit.skills.filter(skill => 
+    const availableSkills = unit.skills?.filter(skill => 
       skill.manaCost <= unit.currentMana && skill.currentCooldown === 0
-    );
+    ) || [];
     
     if (availableSkills.length > 0) {
       const skillChance = unit.magicPower > unit.attack ? 0.7 : 0.4;
@@ -214,9 +214,9 @@ export class BattleSystem {
   }
 
   performSkill(attacker: Unit, target: Unit): void {
-    const availableSkills = attacker.skills.filter(skill => 
+    const availableSkills = attacker.skills?.filter(skill => 
       skill.manaCost <= attacker.currentMana && skill.currentCooldown === 0
-    );
+    ) || [];
     
     if (availableSkills.length === 0) {
       this.performAttack(attacker, target);
@@ -404,7 +404,7 @@ export class BattleSystem {
   }
 
   reduceCooldowns(unit: Unit): void {
-    unit.skills.forEach(skill => {
+    unit.skills?.forEach(skill => {
       if (skill.currentCooldown > 0) {
         skill.currentCooldown--;
       }
@@ -456,7 +456,7 @@ export class BattleSystem {
           'Archer': 0.2,
           'Assassin': 0.15
         };
-      case 'mountain':
+      case 'mountains':
         return {
           'Warrior': 0.15,
           'Knight': 0.1
@@ -494,7 +494,7 @@ export class BattleSystem {
     message: string,
     skillId?: string
   ): void {
-    const logEntry: BattleLogEntry = {
+    const logEntry: BattleLogEntry & { skillId?: string } = {
       round: this.state.round,
       timestamp: Date.now(),
       actorId: actor.id,
@@ -505,7 +505,7 @@ export class BattleSystem {
       skillId
     };
     
-    this.state.log.unshift(logEntry);
+    this.state.log.unshift(logEntry as BattleLogEntry);
   }
 
   checkBattleEnd(): boolean {
@@ -525,3 +525,4 @@ export class BattleSystem {
     return JSON.parse(JSON.stringify(this.state));
   }
 }
+
