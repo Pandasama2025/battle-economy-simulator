@@ -1,4 +1,6 @@
+
 import React from 'react';
+import { BattleConfiguration } from '@/types/battle';
 
 const BalanceAnalyzer = () => {
   // Find places where battleConfig is used with roundTimeLimit and fix them:
