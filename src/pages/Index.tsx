@@ -1,12 +1,13 @@
 
 import Dashboard from '@/components/Dashboard';
 import { GameProvider } from '@/context/GameContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpdateManager from '@/components/UpdateManager';
 import { MainNav } from '@/components/MainNav';
 import { FeatureCard } from '@/components/FeatureCard';
+import { GlassPanel } from '@/components/ui/glass-panel';
 import { 
   Swords, 
   Shield, 
@@ -15,15 +16,26 @@ import {
   BarChart, 
   Coins, 
   AlertTriangle,
-  Info
+  Sparkles
 } from 'lucide-react';
 
 const Index = () => {
   const [showIntro, setShowIntro] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Add loading effect
+  useEffect(() => {
+    // Short timeout to ensure smooth animation
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       <div className="container mx-auto px-4 py-6">
         <MainNav 
           activeTab={activeTab} 
@@ -35,7 +47,10 @@ const Index = () => {
         {showIntro && (
           <Card className="mb-6 bg-gradient-to-r from-card to-secondary/40 animate-in">
             <CardHeader>
-              <CardTitle>自走棋设计工具使用指南</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                自走棋设计工具使用指南
+              </CardTitle>
               <CardDescription>这个工具可以帮助你设计和测试自走棋游戏的各项功能</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -72,7 +87,7 @@ const Index = () => {
                 />
               </div>
               
-              <div className="flex gap-4 items-start mt-6 bg-muted/30 p-4 rounded-lg">
+              <GlassPanel className="flex gap-4 items-start mt-6 p-4 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
                 <div className="space-y-1">
                   <h4 className="text-sm font-medium">重要说明</h4>
@@ -80,7 +95,7 @@ const Index = () => {
                     本工具所有数据都保存在浏览器中，你可以使用保存按钮将数据永久保存。更新日志页面展示了工具的开发进展。
                   </p>
                 </div>
-              </div>
+              </GlassPanel>
             </CardContent>
           </Card>
         )}
