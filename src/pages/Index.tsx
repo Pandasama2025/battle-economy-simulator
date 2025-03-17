@@ -1,13 +1,22 @@
 
 import Dashboard from '@/components/Dashboard';
 import { GameProvider } from '@/context/GameContext';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
-import { Home, Info, History } from 'lucide-react';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpdateManager from '@/components/UpdateManager';
+import { MainNav } from '@/components/MainNav';
+import { FeatureCard } from '@/components/FeatureCard';
+import { 
+  Swords, 
+  Shield, 
+  Users, 
+  Link2, 
+  BarChart, 
+  Coins, 
+  AlertTriangle,
+  Info
+} from 'lucide-react';
 
 const Index = () => {
   const [showIntro, setShowIntro] = useState(false);
@@ -16,91 +25,73 @@ const Index = () => {
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-6">
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/" onClick={() => setActiveTab('dashboard')}>
-                <Home className="h-3.5 w-3.5" />
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>自走棋设计工具</BreadcrumbPage>
-            </BreadcrumbItem>
-            <BreadcrumbItem className="ml-auto">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowIntro(!showIntro)} 
-                className="flex items-center gap-1 h-7"
-              >
-                <Info className="w-3.5 h-3.5" />
-                <span>工具介绍</span>
-              </Button>
-            </BreadcrumbItem>
-            <BreadcrumbItem>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setActiveTab('updates')} 
-                className="flex items-center gap-1 h-7"
-              >
-                <History className="w-3.5 h-3.5" />
-                <span>更新日志</span>
-              </Button>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        <MainNav 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          showIntro={showIntro} 
+          setShowIntro={setShowIntro} 
+        />
         
         {showIntro && (
-          <Card className="mb-6 bg-gradient-to-r from-card to-secondary/10">
+          <Card className="mb-6 bg-gradient-to-r from-card to-secondary/40 animate-in">
             <CardHeader>
               <CardTitle>自走棋设计工具使用指南</CardTitle>
               <CardDescription>这个工具可以帮助你设计和测试自走棋游戏的各项功能</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="space-y-2">
-                  <h3 className="font-semibold">战斗模拟</h3>
-                  <p className="text-muted-foreground">在这里你可以模拟两队单位之间的战斗，观察战斗过程并查看详细日志。</p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold">单位创建</h3>
-                  <p className="text-muted-foreground">你可以创建各种类型的单位，设置它们的属性、技能和所属队伍。</p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold">羁绊系统</h3>
-                  <p className="text-muted-foreground">设计不同的羁绊关系，当单位满足特定条件时会获得增益效果。</p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold">派系编辑</h3>
-                  <p className="text-muted-foreground">创建不同的派系，每个派系可以拥有独特的特性和加成。</p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold">平衡分析</h3>
-                  <p className="text-muted-foreground">分析游戏平衡性，调整各项参数以获得最佳游戏体验。</p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold">经济系统</h3>
-                  <p className="text-muted-foreground">模拟游戏中的经济系统，包括金币获取、利息计算等。</p>
-                </div>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <FeatureCard
+                  title="战斗模拟"
+                  description="模拟两队单位之间的战斗，观察战斗过程并查看详细日志。"
+                  icon={<Swords className="h-5 w-5 text-primary" />}
+                />
+                <FeatureCard
+                  title="单位创建"
+                  description="创建各种类型的单位，设置它们的属性、技能和所属队伍。"
+                  icon={<Shield className="h-5 w-5 text-primary" />}
+                />
+                <FeatureCard
+                  title="羁绊系统"
+                  description="设计不同的羁绊关系，当单位满足特定条件时会获得增益效果。"
+                  icon={<Link2 className="h-5 w-5 text-primary" />}
+                />
+                <FeatureCard
+                  title="派系编辑"
+                  description="创建不同的派系，每个派系可以拥有独特的特性和加成。"
+                  icon={<Users className="h-5 w-5 text-primary" />}
+                />
+                <FeatureCard
+                  title="平衡分析"
+                  description="分析游戏平衡性，调整各项参数以获得最佳游戏体验。"
+                  icon={<BarChart className="h-5 w-5 text-primary" />}
+                />
+                <FeatureCard
+                  title="经济系统"
+                  description="模拟游戏中的经济系统，包括金币获取、利息计算等。"
+                  icon={<Coins className="h-5 w-5 text-primary" />}
+                />
               </div>
-              <div className="pt-2">
-                <p className="text-sm text-muted-foreground">
-                  说明：本工具所有数据都保存在浏览器中，你可以使用保存按钮将数据永久保存。更新日志页面展示了工具的开发进展。
-                </p>
+              
+              <div className="flex gap-4 items-start mt-6 bg-muted/30 p-4 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <h4 className="text-sm font-medium">重要说明</h4>
+                  <p className="text-sm text-muted-foreground">
+                    本工具所有数据都保存在浏览器中，你可以使用保存按钮将数据永久保存。更新日志页面展示了工具的开发进展。
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsContent value="dashboard" className="mt-0">
+          <TabsContent value="dashboard" className="mt-0 animate-up">
             <GameProvider>
               <Dashboard />
             </GameProvider>
           </TabsContent>
-          <TabsContent value="updates" className="mt-0">
+          <TabsContent value="updates" className="mt-0 animate-up">
             <UpdateManager />
           </TabsContent>
         </Tabs>

@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Unit } from '@/types/battle';
 import BattleUnitCard from './BattleUnitCard';
 import { useGame } from '@/context/GameContext';
+import { ShieldAlert, ShieldCheck } from 'lucide-react';
 
 const BattleField = () => {
   const { battleState, resetBattle } = useGame();
@@ -68,26 +69,41 @@ const BattleField = () => {
     ));
   };
   
+  const renderWinnerBadge = () => {
+    if (!battleState || battleState.status !== 'completed') return null;
+    
+    if (battleState.winner === 'draw') {
+      return (
+        <Badge variant="outline" className="flex items-center gap-1">
+          <ShieldAlert className="h-3 w-3" />
+          <span>战平</span>
+        </Badge>
+      );
+    }
+    
+    return (
+      <Badge variant="default" className="flex items-center gap-1 bg-simulator-success hover:bg-simulator-success">
+        <ShieldCheck className="h-3 w-3" />
+        <span>{battleState.winner === 'alpha' ? 'A队获胜' : 'B队获胜'}</span>
+      </Badge>
+    );
+  };
+  
   return (
-    <Card className="w-full h-full">
+    <Card className="w-full h-full animate-in">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <div>
-            <CardTitle>战斗场地</CardTitle>
+            <CardTitle className="text-xl">战斗场地</CardTitle>
             <CardDescription>自动棋战斗模拟</CardDescription>
           </div>
-          {battleState?.status === 'completed' && (
-            <Badge variant={battleState.winner === 'draw' ? 'outline' : 'default'}>
-              {battleState.winner === 'alpha' ? 'A队获胜' : 
-               battleState.winner === 'beta' ? 'B队获胜' : '战平'}
-            </Badge>
-          )}
+          {renderWinnerBadge()}
         </div>
       </CardHeader>
       
       <CardContent className="space-y-4">
         {!battleState || (battleState.teams.alpha.length === 0 && battleState.teams.beta.length === 0) ? (
-          <div className="text-center py-20 text-muted-foreground">
+          <div className="text-center py-20 text-muted-foreground bg-muted/20 rounded-lg">
             <p className="mb-2">请先添加单位到两个队伍</p>
             <Button variant="outline" size="sm" onClick={() => window.location.hash = 'units'}>
               前往单位编辑
@@ -95,9 +111,12 @@ const BattleField = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            <div>
+            <div className="bg-muted/10 p-3 rounded-lg animate-scale-in">
               <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-medium">B队 ({battleState.teams.beta.length}名单位)</h3>
+                <h3 className="text-sm font-medium flex items-center gap-1">
+                  <Badge variant="outline" className="h-5">B</Badge>
+                  <span>队伍 ({battleState.teams.beta.length}名单位)</span>
+                </h3>
                 <div className="flex flex-wrap gap-1">
                   {renderRaceBadges(getTeamRaceCounts(battleState.teams.beta))}
                   {renderProfessionBadges(getTeamProfessionCounts(battleState.teams.beta))}
@@ -118,9 +137,12 @@ const BattleField = () => {
             
             <Separator />
             
-            <div className="space-y-2">
+            <div className="bg-muted/10 p-3 rounded-lg animate-scale-in">
               <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-medium">A队 ({battleState.teams.alpha.length}名单位)</h3>
+                <h3 className="text-sm font-medium flex items-center gap-1">
+                  <Badge variant="outline" className="h-5">A</Badge>
+                  <span>队伍 ({battleState.teams.alpha.length}名单位)</span>
+                </h3>
                 <div className="flex flex-wrap gap-1">
                   {renderRaceBadges(getTeamRaceCounts(battleState.teams.alpha))}
                   {renderProfessionBadges(getTeamProfessionCounts(battleState.teams.alpha))}
@@ -140,11 +162,11 @@ const BattleField = () => {
             </div>
             
             {selectedUnit && (
-              <div className="p-3 bg-muted/20 rounded-md">
+              <div className="p-3 bg-muted/10 rounded-lg animate-fade-in border border-border">
                 <h3 className="text-sm font-medium mb-2">单位详情: {selectedUnit.name}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground">基本信息</div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  <div className="space-y-1 bg-card/50 p-2 rounded-md">
+                    <div className="text-xs text-primary font-medium">基本信息</div>
                     <div className="grid grid-cols-2 gap-1">
                       <div>种族:</div>
                       <div>{selectedUnit.race}</div>
@@ -157,8 +179,8 @@ const BattleField = () => {
                     </div>
                   </div>
                   
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground">战斗属性</div>
+                  <div className="space-y-1 bg-card/50 p-2 rounded-md">
+                    <div className="text-xs text-primary font-medium">战斗属性</div>
                     <div className="grid grid-cols-2 gap-1">
                       <div>攻击力:</div>
                       <div>{selectedUnit.attack}</div>
@@ -171,8 +193,8 @@ const BattleField = () => {
                     </div>
                   </div>
                   
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground">其他属性</div>
+                  <div className="space-y-1 bg-card/50 p-2 rounded-md">
+                    <div className="text-xs text-primary font-medium">其他属性</div>
                     <div className="grid grid-cols-2 gap-1">
                       <div>速度:</div>
                       <div>{selectedUnit.speed}</div>
