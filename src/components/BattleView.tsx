@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -27,7 +26,6 @@ const BattleView = () => {
   const [activeTab, setActiveTab] = useState<string>('teams');
   const isMobile = useIsMobile();
   
-  // 获取当前战斗中的单位
   const getBattleUnits = () => {
     if (battleState) {
       return {
@@ -36,7 +34,6 @@ const BattleView = () => {
       };
     }
     
-    // 如果战斗未开始，显示编辑中的单位
     return {
       teamAlpha: units.filter(unit => unit.team === 'alpha'),
       teamBeta: units.filter(unit => unit.team === 'beta')
@@ -45,12 +42,10 @@ const BattleView = () => {
   
   const { teamAlpha, teamBeta } = getBattleUnits();
   
-  // 显示单位详情
   const showUnitDetails = (unit: Unit) => {
     setActiveUnit(unit);
   };
   
-  // 处理战斗相关操作
   const handleBattleAction = () => {
     if (!battleState) {
       startBattle();
@@ -61,13 +56,11 @@ const BattleView = () => {
     }
   };
   
-  // 重置战斗
   const handleResetBattle = () => {
     resetBattle();
     setActiveUnit(null);
   };
 
-  // 计算团队总生命值百分比
   const calculateTeamHealth = (team: Unit[]) => {
     if (!team.length) return 0;
     const totalCurrentHP = team.reduce((sum, unit) => sum + unit.currentHP, 0);
@@ -81,7 +74,6 @@ const BattleView = () => {
   return (
     <div className="space-y-6 animate-fade-up">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Battle Status Card */}
         <Card className="md:col-span-3 bg-gradient-to-r from-card to-secondary/30">
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
@@ -104,7 +96,7 @@ const BattleView = () => {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="mt-4 flex justify-between items-center">
-              <div className="text-sm font-medium">战斗进度</div>
+              <div className="text-sm font-medium">战���进度</div>
               {battleState && (
                 <div className="text-sm text-muted-foreground">
                   {Math.round((battleState.round / battleState.maxRounds) * 100)}%
@@ -143,7 +135,6 @@ const BattleView = () => {
           </CardFooter>
         </Card>
 
-        {/* Team Cards */}
         <div className="md:col-span-2">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -153,7 +144,6 @@ const BattleView = () => {
             
             <TabsContent value="teams">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Team Alpha */}
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -206,7 +196,6 @@ const BattleView = () => {
                   </CardContent>
                 </Card>
 
-                {/* Team Beta */}
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -273,7 +262,9 @@ const BattleView = () => {
                     ) : (
                       battleLog.map((entry, i) => (
                         <div key={i} className="border-b border-muted/30 last:border-0 pb-1 last:pb-0">
-                          <span className="text-xs font-medium text-muted-foreground">回合 {entry.round}:</span> {entry.message}
+                          <span className="text-xs font-medium text-muted-foreground">
+                            回合 {battleState?.round || '?'}:
+                          </span> {entry.message}
                         </div>
                       ))
                     )}
@@ -284,7 +275,6 @@ const BattleView = () => {
           </Tabs>
         </div>
 
-        {/* Unit Details */}
         <div className="md:col-span-1">
           <Card className="h-full">
             <CardHeader className="pb-2">
