@@ -119,12 +119,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // 当配置的平衡参数变化时更新本地状态
   useEffect(() => {
-    setBalanceParameters(config.balanceParameters);
+    if (config.balanceParameters) {
+      setBalanceParameters(config.balanceParameters);
+    }
   }, [config.balanceParameters]);
 
   // Load units from localStorage on initialization
   useEffect(() => {
     loadUnits();
+    loadBonds();
+    loadFactions();
   }, []);
 
   const initBattleState = useCallback(() => {
@@ -172,6 +176,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
     });
+    
+    // 自动保存单位到本地存储
+    setTimeout(() => saveUnits(), 100);
   }, []);
 
   const removeUnit = useCallback((unitId: string) => {
@@ -214,37 +221,130 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     removeUnit(id);
   }, [removeUnit]);
 
+  // 同步保存功能也应用到羁绊和派系
   const addBond = useCallback((bond: Omit<Bond, 'id'>) => {
     const newBond: Bond = {
       ...bond,
       id: `bond-${Math.random().toString(36).substring(2, 9)}`
     };
-    setBonds(prev => [...prev, newBond]);
+    setBonds(prev => {
+      const updated = [...prev, newBond];
+      // 自动保存羁绊
+      setTimeout(() => {
+        try {
+          localStorage.setItem('savedBonds', JSON.stringify(updated));
+        } catch (error) {
+          console.error("Error saving bonds:", error);
+        }
+      }, 100);
+      return updated;
+    });
   }, []);
 
   const updateBond = useCallback((id: string, updatedBond: Bond) => {
-    setBonds(prev => prev.map(bond => bond.id === id ? updatedBond : bond));
+    setBonds(prev => {
+      const updated = prev.map(bond => bond.id === id ? updatedBond : bond);
+      // 自动保存羁绊
+      setTimeout(() => {
+        try {
+          localStorage.setItem('savedBonds', JSON.stringify(updated));
+        } catch (error) {
+          console.error("Error saving bonds:", error);
+        }
+      }, 100);
+      return updated;
+    });
   }, []);
 
   const deleteBond = useCallback((id: string) => {
-    setBonds(prev => prev.filter(bond => bond.id !== id));
+    setBonds(prev => {
+      const updated = prev.filter(bond => bond.id !== id);
+      // 自动保存羁绊
+      setTimeout(() => {
+        try {
+          localStorage.setItem('savedBonds', JSON.stringify(updated));
+        } catch (error) {
+          console.error("Error saving bonds:", error);
+        }
+      }, 100);
+      return updated;
+    });
+  }, []);
+  
+  // Load bonds from localStorage
+  const loadBonds = useCallback(() => {
+    try {
+      const savedBonds = localStorage.getItem('savedBonds');
+      if (savedBonds) {
+        const parsedBonds = JSON.parse(savedBonds) as Bond[];
+        setBonds(parsedBonds);
+      }
+    } catch (error) {
+      console.error("Error loading bonds:", error);
+    }
   }, []);
 
-  // Faction management functions
+  // Faction management with auto-save functions
   const addFaction = useCallback((faction: Omit<Faction, 'id'>) => {
     const newFaction: Faction = {
       ...faction,
       id: `faction-${Math.random().toString(36).substring(2, 9)}`
     };
-    setFactions(prev => [...prev, newFaction]);
+    setFactions(prev => {
+      const updated = [...prev, newFaction];
+      // 自动保存派系
+      setTimeout(() => {
+        try {
+          localStorage.setItem('savedFactions', JSON.stringify(updated));
+        } catch (error) {
+          console.error("Error saving factions:", error);
+        }
+      }, 100);
+      return updated;
+    });
   }, []);
 
   const updateFaction = useCallback((id: string, updatedFaction: Faction) => {
-    setFactions(prev => prev.map(faction => faction.id === id ? updatedFaction : faction));
+    setFactions(prev => {
+      const updated = prev.map(faction => faction.id === id ? updatedFaction : faction);
+      // 自动保存派系
+      setTimeout(() => {
+        try {
+          localStorage.setItem('savedFactions', JSON.stringify(updated));
+        } catch (error) {
+          console.error("Error saving factions:", error);
+        }
+      }, 100);
+      return updated;
+    });
   }, []);
 
   const deleteFaction = useCallback((id: string) => {
-    setFactions(prev => prev.filter(faction => faction.id !== id));
+    setFactions(prev => {
+      const updated = prev.filter(faction => faction.id !== id);
+      // 自动保存派系
+      setTimeout(() => {
+        try {
+          localStorage.setItem('savedFactions', JSON.stringify(updated));
+        } catch (error) {
+          console.error("Error saving factions:", error);
+        }
+      }, 100);
+      return updated;
+    });
+  }, []);
+  
+  // Load factions from localStorage
+  const loadFactions = useCallback(() => {
+    try {
+      const savedFactions = localStorage.getItem('savedFactions');
+      if (savedFactions) {
+        const parsedFactions = JSON.parse(savedFactions) as Faction[];
+        setFactions(parsedFactions);
+      }
+    } catch (error) {
+      console.error("Error loading factions:", error);
+    }
   }, []);
 
   // Save units to localStorage
@@ -395,6 +495,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
+  // 模拟战斗方法中添加战斗结束的逻辑
   const simulateBattle = useCallback(() => {
     if (!battleState) return;
     
@@ -405,6 +506,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (prev.status === 'completed') {
         setIsSimulating(false);
+        // 在战斗完成时更新battleLog
+        const winnerMessage = `战斗结束！${
+          prev.winner === 'alpha' ? 'A队获胜!' : 
+          prev.winner === 'beta' ? 'B队获胜!' : 
+          '战斗平局!'
+        }`;
+        setBattleLog(oldLog => [...oldLog, { message: winnerMessage }]);
         return prev;
       }
       
@@ -681,3 +789,4 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </GameContext.Provider>
   );
 };
+

@@ -2,13 +2,16 @@
 import Dashboard from '@/components/Dashboard';
 import { GameProvider } from '@/context/GameContext';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
-import { Home, Info } from 'lucide-react';
+import { Home, Info, History } from 'lucide-react';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import UpdateManager from '@/components/UpdateManager';
 
 const Index = () => {
   const [showIntro, setShowIntro] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <div className="min-h-screen">
@@ -16,7 +19,7 @@ const Index = () => {
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/">
+              <BreadcrumbLink href="/" onClick={() => setActiveTab('dashboard')}>
                 <Home className="h-3.5 w-3.5" />
               </BreadcrumbLink>
             </BreadcrumbItem>
@@ -33,6 +36,17 @@ const Index = () => {
               >
                 <Info className="w-3.5 h-3.5" />
                 <span>工具介绍</span>
+              </Button>
+            </BreadcrumbItem>
+            <BreadcrumbItem>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setActiveTab('updates')} 
+                className="flex items-center gap-1 h-7"
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>更新日志</span>
               </Button>
             </BreadcrumbItem>
           </BreadcrumbList>
@@ -80,9 +94,16 @@ const Index = () => {
           </Card>
         )}
         
-        <GameProvider>
-          <Dashboard />
-        </GameProvider>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsContent value="dashboard" className="mt-0">
+            <GameProvider>
+              <Dashboard />
+            </GameProvider>
+          </TabsContent>
+          <TabsContent value="updates" className="mt-0">
+            <UpdateManager />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
