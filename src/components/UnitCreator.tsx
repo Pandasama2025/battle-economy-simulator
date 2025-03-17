@@ -23,7 +23,7 @@ const UnitCreator: React.FC = () => {
   const [unitType, setUnitType] = useState('战士');
   const [unitRace, setUnitRace] = useState('人类');
   const [unitProfession, setUnitProfession] = useState('战士');
-  const [unitFaction, setUnitFaction] = useState('');
+  const [unitFaction, setUnitFaction] = useState('无派系');
   const [unitLevel, setUnitLevel] = useState(1);
   const [unitAttack, setUnitAttack] = useState(10);
   const [unitDefense, setUnitDefense] = useState(5);
@@ -50,7 +50,7 @@ const UnitCreator: React.FC = () => {
       type: unitType,
       race: unitRace,
       profession: unitProfession,
-      faction: unitFaction || undefined,
+      faction: unitFaction === '无派系' ? undefined : unitFaction,
       level: unitLevel,
       attack: unitAttack,
       defense: unitDefense,
@@ -164,7 +164,7 @@ const UnitCreator: React.FC = () => {
                     <SelectValue placeholder="选择派系" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">无派系</SelectItem>
+                    <SelectItem value="无派系">无派系</SelectItem>
                     {factions.map(faction => (
                       <SelectItem key={faction.id} value={faction.name}>
                         {faction.name}

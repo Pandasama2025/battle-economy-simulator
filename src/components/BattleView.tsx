@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -96,7 +97,7 @@ const BattleView = () => {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="mt-4 flex justify-between items-center">
-              <div className="text-sm font-medium">战���进度</div>
+              <div className="text-sm font-medium">战斗进度</div>
               {battleState && (
                 <div className="text-sm text-muted-foreground">
                   {Math.round((battleState.round / battleState.maxRounds) * 100)}%
