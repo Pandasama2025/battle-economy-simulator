@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UnitCreator from '@/components/UnitCreator';
@@ -30,13 +29,15 @@ import { Card } from './ui/card';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('battle');
-  const { saveUnits, loadUnits, hasUnsavedChanges } = useGameContext();
+  const { saveUnits, loadUnits } = useGameContext();
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [showTabInfo, setShowTabInfo] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const handleSave = () => {
     saveUnits();
+    setHasUnsavedChanges(false);
     toast({
       title: "保存成功",
       description: "所有单位数据已成功保存",
@@ -51,18 +52,14 @@ const Dashboard: React.FC = () => {
     });
   };
 
-  const tabItems = [
-    { id: 'battle', label: '战斗模拟', icon: <Swords className="w-4 h-4" />, description: '模拟两支队伍之间的对战，观察战斗过程' },
-    { id: 'units', label: '单位创建', icon: <Shield className="w-4 h-4" />, description: '创建、编辑和管理游戏中的各类单位' },
-    { id: 'bonds', label: '羁绊编辑', icon: <Link2 className="w-4 h-4" />, description: '设计单位之间的羁绊关系和增益效果' },
-    { id: 'factions', label: '派系编辑', icon: <Users className="w-4 h-4" />, description: '管理游戏中的不同派系及其特性' },
-    { id: 'balance', label: '平衡分析', icon: <BarChart className="w-4 h-4" />, description: '通过数据分析优化游戏平衡性' },
-    { id: 'economy', label: '经济系统', icon: <Coins className="w-4 h-4" />, description: '设计游戏中的经济机制与资源管理' },
-    { id: 'config', label: '配置管理', icon: <Settings className="w-4 h-4" />, description: '调整游戏的全局配置与设置' },
-  ];
-
-  // Get current tab info
-  const currentTabInfo = tabItems.find(tab => tab.id === activeTab);
+  // Set unsaved changes after a delay to simulate changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setHasUnsavedChanges(true);
+    }, 60000); // Check for unsaved changes after 1 minute
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // Effect to remind users to save if there are unsaved changes
   useEffect(() => {
@@ -78,6 +75,19 @@ const Dashboard: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [hasUnsavedChanges, toast]);
+
+  const tabItems = [
+    { id: 'battle', label: '战斗模拟', icon: <Swords className="w-4 h-4" />, description: '模拟两支队伍之间的对战，观察战斗过程' },
+    { id: 'units', label: '单位创建', icon: <Shield className="w-4 h-4" />, description: '创建、编辑和管理游戏中的各类单位' },
+    { id: 'bonds', label: '羁绊编辑', icon: <Link2 className="w-4 h-4" />, description: '设计单位之间的羁绊关系和增益效果' },
+    { id: 'factions', label: '派系编辑', icon: <Users className="w-4 h-4" />, description: '管理游戏中的不同派系及其特性' },
+    { id: 'balance', label: '平衡分析', icon: <BarChart className="w-4 h-4" />, description: '通过数据分析优化游戏平衡性' },
+    { id: 'economy', label: '经济系统', icon: <Coins className="w-4 h-4" />, description: '设计游戏中的经济机制与资源管理' },
+    { id: 'config', label: '配置管理', icon: <Settings className="w-4 h-4" />, description: '调整游戏的全局配置与设置' },
+  ];
+
+  // Get current tab info
+  const currentTabInfo = tabItems.find(tab => tab.id === activeTab);
 
   return (
     <div className="container mx-auto p-4 max-w-7xl animate-in">
