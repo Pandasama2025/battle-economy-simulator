@@ -27,6 +27,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { GlassPanel } from './ui/glass-panel';
 import { Card } from './ui/card';
+import { cn } from '@/lib/utils';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('battle');
