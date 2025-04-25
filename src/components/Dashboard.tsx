@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UnitCreator from '@/components/UnitCreator';
@@ -115,7 +116,7 @@ const Dashboard: React.FC = () => {
             <Button 
               onClick={handleSave}
               variant={hasUnsavedChanges ? "default" : "outline"} 
-              className="flex items-center gap-1"
+              className={cn("flex items-center gap-1", hasUnsavedChanges && "animate-pulse")}
               size={isMobile ? "sm" : "default"}
             >
               <Save className="w-4 h-4" />

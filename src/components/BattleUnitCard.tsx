@@ -18,6 +18,13 @@ const BattleUnitCard: React.FC<BattleUnitCardProps> = ({ unit, isSelected, onCli
   const manaPercentage = unit.maxMana ? (unit.currentMana / unit.maxMana) * 100 : 0;
   const isDead = unit.currentHP <= 0;
   
+  // 获取健康状态对应的变体
+  const getHealthVariant = () => {
+    if (healthPercentage > 60) return "success";
+    if (healthPercentage > 30) return "warning";
+    return "danger";
+  };
+  
   // 获取职业对应的颜色
   const getProfessionColor = (profession?: string) => {
     if (!profession) return 'bg-gray-500';
@@ -112,11 +119,7 @@ const BattleUnitCard: React.FC<BattleUnitCardProps> = ({ unit, isSelected, onCli
           <Progress 
             value={healthPercentage} 
             className="h-1.5" 
-            indicatorClassName={cn(
-              healthPercentage > 60 ? "bg-green-500" : 
-              healthPercentage > 30 ? "bg-amber-500" : 
-              "bg-red-500"
-            )}
+            variant={getHealthVariant()}
           />
           
           {unit.maxMana && (
@@ -131,6 +134,7 @@ const BattleUnitCard: React.FC<BattleUnitCardProps> = ({ unit, isSelected, onCli
               <Progress 
                 value={manaPercentage} 
                 className="h-1.5" 
+                variant="default"
                 indicatorClassName="bg-blue-500"
               />
             </>
